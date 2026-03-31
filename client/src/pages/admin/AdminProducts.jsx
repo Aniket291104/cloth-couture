@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { Edit, Trash2, Plus } from 'lucide-react';
+import { API_BASE_URL } from '@/lib/utils';
 
 const AdminProducts = () => {
   const [products, setProducts] = useState([]);
@@ -10,7 +11,7 @@ const AdminProducts = () => {
 
   const fetchProducts = async () => {
     try {
-      const { data } = await axios.get('http://localhost:5001/api/products');
+      const { data } = await axios.get(`${API_BASE_URL}/api/products`);
       setProducts(data);
       setLoading(false);
     } catch (err) {
@@ -32,7 +33,7 @@ const AdminProducts = () => {
             Authorization: `Bearer ${userInfo.token}`,
           },
         };
-        await axios.delete(`http://localhost:5001/api/products/${id}`, config);
+        await axios.delete(`${API_BASE_URL}/api/products/${id}`, config);
         fetchProducts(); // Refresh list
       } catch (err) {
         alert(err.response && err.response.data.message ? err.response.data.message : err.message);

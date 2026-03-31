@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ShoppingCart, Star, Heart } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
+import { API_BASE_URL } from '@/lib/utils';
 
 const ProductDetails = () => {
   const { id } = useParams();
@@ -20,7 +21,7 @@ const ProductDetails = () => {
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const { data } = await axios.get(`http://localhost:5001/api/products/${id}`);
+        const { data } = await axios.get(`${API_BASE_URL}/api/products/${id}`);
         setProduct(data);
         if (data.sizes && data.sizes.length > 0) {
           setSize(data.sizes[0]);

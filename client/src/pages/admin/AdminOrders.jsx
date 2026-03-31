@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Eye } from 'lucide-react';
+import { API_BASE_URL } from '@/lib/utils';
 
 const AdminOrders = () => {
   const [orders, setOrders] = useState([]);
@@ -15,7 +16,7 @@ const AdminOrders = () => {
           Authorization: `Bearer ${userInfo.token}`,
         },
       };
-      const { data } = await axios.get('http://localhost:5001/api/orders', config);
+      const { data } = await axios.get(`${API_BASE_URL}/api/orders`, config);
       setOrders(data);
       setLoading(false);
     } catch (err) {
@@ -32,7 +33,7 @@ const AdminOrders = () => {
           Authorization: `Bearer ${userInfo.token}`,
         },
       };
-      await axios.put(`http://localhost:5001/api/orders/${id}/deliver`, {}, config);
+      await axios.put(`${API_BASE_URL}/api/orders/${id}/deliver`, {}, config);
       fetchOrders();
     } catch (err) {
       alert(err.response && err.response.data.message ? err.response.data.message : err.message);
@@ -47,7 +48,7 @@ const AdminOrders = () => {
           Authorization: `Bearer ${userInfo.token}`,
         },
       };
-      await axios.put(`http://localhost:5001/api/orders/${id}/pay`, {}, config);
+      await axios.put(`${API_BASE_URL}/api/orders/${id}/pay`, {}, config);
       fetchOrders();
     } catch (err) {
       alert(err.response && err.response.data.message ? err.response.data.message : err.message);

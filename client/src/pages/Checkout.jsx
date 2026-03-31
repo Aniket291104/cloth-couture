@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import axios from 'axios';
+import { API_BASE_URL } from '@/lib/utils';
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -69,7 +70,7 @@ const Checkout = () => {
         },
       };
 
-      const { data } = await axios.post('http://localhost:5001/api/orders', {
+      const { data } = await axios.post(`${API_BASE_URL}/api/orders`, {
         orderItems: cartItems,
         shippingAddress: { address, city, postalCode, country },
         paymentMethod,
@@ -81,7 +82,7 @@ const Checkout = () => {
 
       if (paymentMethod === 'Razorpay') {
         alert('Integrating Razorpay. Assuming success for demo.');
-        await axios.put(`http://localhost:5001/api/orders/${data._id}/pay`, {}, config);
+        await axios.put(`${API_BASE_URL}/api/orders/${data._id}/pay`, {}, config);
       }
 
       clearCart();

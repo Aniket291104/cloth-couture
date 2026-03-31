@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import axios from 'axios';
+import { API_BASE_URL } from '@/lib/utils';
 
 const ProductEdit = () => {
   const { id } = useParams();
@@ -41,7 +42,7 @@ const ProductEdit = () => {
           'Content-Type': 'multipart/form-data',
         },
       };
-      const { data } = await axios.post('http://localhost:5001/api/upload', formData, config);
+      const { data } = await axios.post(`${API_BASE_URL}/api/upload`, formData, config);
       setImages(prev => [...prev, ...data]);
       setUploading(false);
     } catch (error) {
@@ -59,7 +60,7 @@ const ProductEdit = () => {
 
     const fetchProduct = async () => {
       try {
-        const { data } = await axios.get(`http://localhost:5001/api/products/${id}`);
+        const { data } = await axios.get(`${API_BASE_URL}/api/products/${id}`);
         setName(data.name);
         setPrice(data.price);
         setImages(data.images || []);
@@ -99,7 +100,7 @@ const ProductEdit = () => {
         withCredentials: true,
       };
 
-      await axios.put(`http://localhost:5001/api/products/${id}`, {
+      await axios.put(`${API_BASE_URL}/api/products/${id}`, {
         name,
         price,
         images,

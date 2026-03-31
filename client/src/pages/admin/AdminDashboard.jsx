@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Package, ShoppingCart, Users, DollarSign } from 'lucide-react';
+import { API_BASE_URL } from '@/lib/utils';
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
@@ -16,7 +17,7 @@ const AdminDashboard = () => {
             Authorization: `Bearer ${userInfo.token}`,
           },
         };
-        const { data } = await axios.get('http://localhost:5001/api/admin/stats', config);
+        const { data } = await axios.get(`${API_BASE_URL}/api/admin/stats`, config);
         setStats(data);
         setLoading(false);
     } catch (err) {
@@ -29,7 +30,7 @@ const AdminDashboard = () => {
     try {
       const userInfo = JSON.parse(localStorage.getItem('userInfo'));
       const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
-      await axios.put(`http://localhost:5001/api/orders/${id}/deliver`, {}, config);
+      await axios.put(`${API_BASE_URL}/api/orders/${id}/deliver`, {}, config);
       fetchStats();
     } catch (err) {
       alert(err.response && err.response.data.message ? err.response.data.message : err.message);
@@ -40,7 +41,7 @@ const AdminDashboard = () => {
     try {
       const userInfo = JSON.parse(localStorage.getItem('userInfo'));
       const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
-      await axios.put(`http://localhost:5001/api/orders/${id}/pay`, {}, config);
+      await axios.put(`${API_BASE_URL}/api/orders/${id}/pay`, {}, config);
       fetchStats();
     } catch (err) {
       alert(err.response && err.response.data.message ? err.response.data.message : err.message);

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import { API_BASE_URL } from '@/lib/utils';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -54,7 +55,7 @@ const Collections = () => {
   useEffect(() => {
     const fetchAndGroup = async () => {
       try {
-        const { data } = await axios.get('http://localhost:5001/api/products');
+        const { data } = await axios.get(`${API_BASE_URL}/api/products`);
         // Group products by category and count them
         const grouped = data.reduce((acc, product) => {
           const cat = product.category?.toLowerCase();

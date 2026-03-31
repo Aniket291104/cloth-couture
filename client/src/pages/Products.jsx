@@ -5,6 +5,7 @@ import axios from 'axios';
 import { Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useWishlist } from '../context/WishlistContext';
+import { API_BASE_URL } from '@/lib/utils';
 
 const Products = () => {
   const [products, setProducts] = useState([]);
@@ -20,7 +21,7 @@ const Products = () => {
     const fetchProducts = async () => {
       setLoading(true);
       try {
-        let url = 'http://localhost:5001/api/products';
+        let url = `${API_BASE_URL}/api/products`;
         const params = new URLSearchParams();
         if (category) params.append('category', category);
         if (keyword) params.append('keyword', keyword);

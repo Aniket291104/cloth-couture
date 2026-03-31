@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Mail, Trash2, Download } from 'lucide-react';
+import { API_BASE_URL } from '@/lib/utils';
 
 const AdminSubscribers = () => {
   const [subscribers, setSubscribers] = useState([]);
@@ -11,7 +12,7 @@ const AdminSubscribers = () => {
     try {
       const userInfo = JSON.parse(localStorage.getItem('userInfo'));
       const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
-      const { data } = await axios.get('http://localhost:5001/api/newsletter/subscribers', config);
+      const { data } = await axios.get(`${API_BASE_URL}/api/newsletter/subscribers`, config);
       setSubscribers(data);
     } catch (err) {
       setError(err.response?.data?.message || err.message);
@@ -25,7 +26,7 @@ const AdminSubscribers = () => {
     try {
       const userInfo = JSON.parse(localStorage.getItem('userInfo'));
       const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
-      await axios.delete(`http://localhost:5001/api/newsletter/subscribers/${id}`, config);
+      await axios.delete(`${API_BASE_URL}/api/newsletter/subscribers/${id}`, config);
       setSubscribers((prev) => prev.filter((s) => s._id !== id));
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to delete subscriber.');

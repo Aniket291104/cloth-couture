@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import axios from 'axios';
+import { API_BASE_URL } from '@/lib/utils';
 
 const ProductCreate = () => {
   const navigate = useNavigate();
@@ -39,7 +40,7 @@ const ProductCreate = () => {
           'Content-Type': 'multipart/form-data',
         },
       };
-      const { data } = await axios.post('http://localhost:5001/api/upload', formData, config);
+      const { data } = await axios.post(`${API_BASE_URL}/api/upload`, formData, config);
       setImages(prev => [...prev, ...data]);
       setUploading(false);
     } catch (error) {
@@ -78,7 +79,7 @@ const ProductCreate = () => {
         withCredentials: true,
       };
 
-      await axios.post('http://localhost:5001/api/products', {
+      await axios.post(`${API_BASE_URL}/api/products`, {
         name,
         price,
         images,
