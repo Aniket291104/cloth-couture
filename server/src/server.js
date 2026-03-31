@@ -15,7 +15,12 @@ import newsletterRoutes from './routes/newsletterRoutes.js';
 import path from 'path';
 import fs from 'fs';
 
-dotenv.config();
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirnameSrv = path.dirname(__filename);
+
+dotenv.config({ path: path.join(__dirnameSrv, '../.env') });
 connectDB();
 
 const app = express();

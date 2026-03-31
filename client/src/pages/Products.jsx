@@ -2,13 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import { Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useWishlist } from '../context/WishlistContext';
 
 const Products = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sortOrder, setSortOrder] = useState('');
   const location = useLocation();
+  const { isInWishlist, toggleWishlist } = useWishlist();
   const searchParams = new URLSearchParams(location.search);
   const category = searchParams.get('category');
   const keyword = searchParams.get('keyword');
@@ -83,12 +86,22 @@ const Products = () => {
               className="group flex flex-col"
             >
               <Link to={`/products/${product._id}`} className="block relative aspect-[4/5] overflow-hidden rounded-lg mb-4 bg-muted">
-                <img 
-                  src={product.images?.[0] || product.image || '/images/placeholder.png'} 
-                  alt={product.name} 
+                <img
+                  src={product.images?.[0] || product.image || '/images/placeholder.png'}
+                  alt={product.name}
                   className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                {/* Wishlist button */}
+                <button
+                  onClick={(e) => { e.preventDefault(); toggleWishlist(product); }}
+                  className="absolute top-3 right-3 p-2 bg-white/90 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-all hover:scale-110"
+                  title={isInWishlist(product._id) ? 'Remove from wishlist' : 'Add to wishlist'}
+                >
+                  <Heart className={`h-4 w-4 transition-colors ${
+                    isInWishlist(product._id) ? 'text-primary fill-primary' : 'text-gray-400'
+                  }`} />
+                </button>
               </Link>
               <div className="flex justify-between items-start">
                 <div>

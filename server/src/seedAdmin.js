@@ -1,17 +1,20 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import bcrypt from 'bcryptjs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import User from './models/User.js';
 import connectDB from './config/db.js';
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, '../.env') });
+
 connectDB();
 
 const importAdmin = async () => {
     try {
-        await User.deleteMany({ email: 'admin@clothcouture.com' }); // Ensure no duplicate
-        
-        // Don't hash password here because userSchema.pre('save') handles hashing
+        await User.deleteMany({ email: 'admin@clothcouture.com' });
+
         const adminUser = new User({
             name: 'Admin User',
             email: 'admin@clothcouture.com',
@@ -20,10 +23,10 @@ const importAdmin = async () => {
         });
 
         await adminUser.save();
-        console.log('Admin user created: admin@clothcouture.com / password123');
+        console.log('✅ Admin user created: admin@clothcouture.com / password123');
         process.exit();
     } catch (error) {
-        console.error(`${error}`);
+        console.error(`❌ Error: ${error.message}`);
         process.exit(1);
     }
 };

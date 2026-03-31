@@ -1,17 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, User, Menu, X, Search } from 'lucide-react';
+import { ShoppingCart, User, Menu, X, Search, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '../../context/CartContext';
+import { useWishlist } from '../../context/WishlistContext';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [keyword, setKeyword] = useState('');
   const { cartItems } = useCart();
+  const { wishlist } = useWishlist();
   const location = useLocation();
   const navigate = useNavigate();
-  
+
   const userInfo = localStorage.getItem('userInfo') ? JSON.parse(localStorage.getItem('userInfo')) : null;
 
   const handleLogout = () => {
@@ -47,7 +49,7 @@ const Navbar = () => {
           <nav className="hidden md:flex items-center space-x-8">
             <Link to="/" className="text-sm font-medium hover:text-primary transition-colors">Home</Link>
             <Link to="/products" className="text-sm font-medium hover:text-primary transition-colors">Shop</Link>
-            <Link to="/products" className="text-sm font-medium hover:text-primary transition-colors">Collections</Link>
+            <Link to="/collections" className="text-sm font-medium hover:text-primary transition-colors">Collections</Link>
             {userInfo && userInfo.role === 'admin' && (
               <Link to="/admin/dashboard" className="text-sm font-medium text-primary hover:text-primary-dark transition-colors">Admin Panel</Link>
             )}
@@ -56,11 +58,11 @@ const Navbar = () => {
           <div className="flex items-center space-x-4">
             {isSearchOpen ? (
               <form onSubmit={handleSearch} className="flex items-center">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={keyword}
                   onChange={(e) => setKeyword(e.target.value)}
-                  placeholder="Search..." 
+                  placeholder="Search..."
                   className="px-2 py-1 text-sm border-b border-primary bg-transparent focus:outline-none w-24 sm:w-32 md:w-48 transition-all"
                   autoFocus
                 />
@@ -73,12 +75,25 @@ const Navbar = () => {
                 <Search className="h-5 w-5" />
               </button>
             )}
+
+            {/* Wishlist icon */}
+            <Link to="/wishlist" className="relative text-foreground hover:text-primary transition-colors">
+              <Heart className="h-5 w-5" />
+              {wishlist.length > 0 && (
+                <span className="absolute -top-2 -right-2 bg-primary text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                  {wishlist.length}
+                </span>
+              )}
+            </Link>
+
+            {/* Cart icon */}
             <Link to="/cart" className="relative text-foreground hover:text-primary transition-colors">
               <ShoppingCart className="h-5 w-5" />
               <span className="absolute -top-2 -right-2 bg-primary text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
                 {cartItems.length}
               </span>
             </Link>
+
             {userInfo ? (
               <div className="flex items-center space-x-4">
                 <span className="text-sm font-medium text-primary-dark cursor-default">Hi, {userInfo.name.split(' ')[0]}</span>
@@ -104,7 +119,10 @@ const Navbar = () => {
             <div className="flex flex-col px-4 py-4 space-y-4">
               <Link to="/" className="text-sm font-medium hover:text-primary transition-colors" onClick={() => setIsOpen(false)}>Home</Link>
               <Link to="/products" className="text-sm font-medium hover:text-primary transition-colors" onClick={() => setIsOpen(false)}>Shop</Link>
-              <Link to="/products" className="text-sm font-medium hover:text-primary transition-colors" onClick={() => setIsOpen(false)}>Collections</Link>
+              <Link to="/collections" className="text-sm font-medium hover:text-primary transition-colors" onClick={() => setIsOpen(false)}>Collections</Link>
+              <Link to="/wishlist" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-2" onClick={() => setIsOpen(false)}>
+                <Heart className="h-4 w-4" /> Wishlist {wishlist.length > 0 && `(${wishlist.length})`}
+              </Link>
               <Link to="/about" className="text-sm font-medium hover:text-primary transition-colors" onClick={() => setIsOpen(false)}>Our Story</Link>
             </div>
           </motion.div>

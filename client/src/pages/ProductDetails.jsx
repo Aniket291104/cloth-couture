@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { ShoppingCart, Star, Heart } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import { useWishlist } from '../context/WishlistContext';
 
 const ProductDetails = () => {
   const { id } = useParams();
@@ -14,6 +15,7 @@ const ProductDetails = () => {
   const [qty, setQty] = useState(1);
   const [size, setSize] = useState('');
   const { addToCart } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -140,8 +142,15 @@ const ProductDetails = () => {
             >
               <ShoppingCart className="mr-2 h-5 w-5" /> Add to Cart
             </Button>
-            <Button size="lg" variant="outline" className="px-6 rounded-md py-6 text-lg group hover:border-primary hover:bg-transparent">
-              <Heart className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+            <Button size="lg" variant="outline"
+              onClick={() => toggleWishlist(product)}
+              className={`px-6 rounded-md py-6 text-lg group hover:border-primary hover:bg-transparent ${isInWishlist(product._id) ? 'border-primary' : ''}`}
+            >
+              <Heart className={`h-5 w-5 transition-colors ${
+                isInWishlist(product._id)
+                  ? 'text-primary fill-primary'
+                  : 'text-muted-foreground group-hover:text-primary'
+              }`} />
             </Button>
           </div>
           
