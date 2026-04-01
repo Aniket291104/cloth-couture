@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, User, Menu, X, Search, Heart, Package, ChevronDown, LogOut, Settings } from 'lucide-react';
+import { ShoppingCart, User, Menu, X, Search, Heart, Package, ChevronDown, LogOut, Settings, Moon, Sun, Loader2 } from 'lucide-react';
+import axios from 'axios';
+import { API_BASE_URL } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
@@ -10,6 +12,9 @@ const Navbar = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [keyword, setKeyword] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
   const { cartItems } = useCart();
   const { wishlist } = useWishlist();
   const location = useLocation();
@@ -18,11 +23,44 @@ const Navbar = () => {
 
   const userInfo = localStorage.getItem('userInfo') ? JSON.parse(localStorage.getItem('userInfo')) : null;
 
-  // Close user menu on outside click
+  // Dark mode handler
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  // Search suggestions handler (debounce)
+  useEffect(() => {
+    if (keyword.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    const delay = setTimeout(async () => {
+      setLoadingSuggestions(true);
+      try {
+        const { data } = await axios.get(`${API_BASE_URL}/api/products/suggestions?keyword=${keyword}`);
+        setSuggestions(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingSuggestions(false);
+      }
+    }, 300);
+    return () => clearTimeout(delay);
+  }, [keyword]);
+
+  // Close menus on outside click
   useEffect(() => {
     const handler = (e) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
         setIsUserMenuOpen(false);
+      }
+      if (!e.target.closest('.search-container')) {
+        setSuggestions([]);
       }
     };
     document.addEventListener('mousedown', handler);
@@ -87,25 +125,71 @@ const Navbar = () => {
           {/* Right icons */}
           <div className="flex items-center space-x-3">
             {/* Search */}
-            <AnimatePresence>
-              {isSearchOpen ? (
-                <motion.form onSubmit={handleSearch} initial={{ width: 0, opacity: 0 }} animate={{ width: 'auto', opacity: 1 }} exit={{ width: 0, opacity: 0 }} className="flex items-center overflow-hidden">
-                  <input
-                    type="text" value={keyword} onChange={e => setKeyword(e.target.value)}
-                    placeholder="Search products..."
-                    className="px-3 py-1.5 text-sm border-b border-primary bg-transparent focus:outline-none w-36 md:w-48"
-                    autoFocus
-                  />
-                  <button type="button" onClick={() => setIsSearchOpen(false)} className="ml-1 text-muted-foreground hover:text-foreground">
-                    <X className="h-4 w-4" />
+            <div className="relative search-container">
+              <AnimatePresence>
+                {isSearchOpen ? (
+                  <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 'auto', opacity: 1 }} exit={{ width: 0, opacity: 0 }} className="flex items-center">
+                    <form onSubmit={handleSearch} className="flex items-center overflow-hidden">
+                      <input
+                        type="text" value={keyword} onChange={e => setKeyword(e.target.value)}
+                        placeholder="Search products..."
+                        className="px-3 py-1.5 text-sm border-b border-primary bg-transparent focus:outline-none w-36 md:w-48 text-foreground"
+                        autoFocus
+                      />
+                      <button type="button" onClick={() => { setIsSearchOpen(false); setKeyword(''); setSuggestions([]); }} className="ml-1 text-muted-foreground hover:text-foreground">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </form>
+                    
+                    {/* Suggestions Dropdown */}
+                    <AnimatePresence>
+                      {(suggestions.length > 0 || loadingSuggestions) && isSearchOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+                          className="absolute top-full left-0 mt-2 w-64 bg-background border border-border rounded-xl shadow-2xl overflow-hidden z-[60]"
+                        >
+                          {loadingSuggestions ? (
+                            <div className="p-4 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+                          ) : (
+                            <div className="py-2">
+                              {suggestions.map(s => (
+                                <Link
+                                  key={s._id} to={`/products/${s._id}`}
+                                  onClick={() => { setIsSearchOpen(false); setKeyword(''); setSuggestions([]); }}
+                                  className="flex items-center gap-3 px-4 py-2 hover:bg-muted transition-colors"
+                                >
+                                  <img src={s.images?.[0]} alt="" className="w-10 h-10 object-cover rounded" />
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-medium text-foreground truncate">{s.name}</p>
+                                    <p className="text-[10px] text-primary font-bold">₹{s.price}</p>
+                                  </div>
+                                </Link>
+                              ))}
+                              <Link to={`/products?keyword=${keyword}`} onClick={() => setIsSearchOpen(false)} className="block text-center py-2 text-[10px] text-muted-foreground hover:text-primary border-t border-border mt-1">
+                                See all results for "{keyword}"
+                              </Link>
+                            </div>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                ) : (
+                  <button onClick={() => setIsSearchOpen(true)} className="text-foreground hover:text-primary transition-colors p-1">
+                    <Search className="h-5 w-5" />
                   </button>
-                </motion.form>
-              ) : (
-                <button onClick={() => setIsSearchOpen(true)} className="text-foreground hover:text-primary transition-colors p-1">
-                  <Search className="h-5 w-5" />
-                </button>
-              )}
-            </AnimatePresence>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Theme Toggle */}
+            <button
+              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+              className="text-foreground hover:text-primary transition-colors p-1"
+              title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+            >
+              {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+            </button>
 
             {/* Wishlist */}
             <Link to="/wishlist" className="relative text-foreground hover:text-primary transition-colors p-1">

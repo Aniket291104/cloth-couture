@@ -160,3 +160,13 @@ export const getProductReviews = async (req, res) => {
     const reviews = await Review.find({ productId: req.params.id }).sort({ createdAt: -1 });
     res.json(reviews);
 };
+// @desc    Get product suggestions
+// @route   GET /api/products/suggestions
+// @access  Public
+export const getProductSuggestions = async (req, res) => {
+    const keyword = req.query.keyword
+        ? { name: { $regex: req.query.keyword, $options: 'i' } }
+        : {};
+    const products = await Product.find({ ...keyword }).select('name images price').limit(5);
+    res.json(products);
+};

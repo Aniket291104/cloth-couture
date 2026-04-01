@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { Heart, SlidersHorizontal, X } from 'lucide-react';
+import { Heart, SlidersHorizontal, X, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useWishlist } from '../context/WishlistContext';
 import { useToast } from '../context/ToastContext';
 import { API_BASE_URL } from '@/lib/utils';
+import QuickView from '../components/storefront/QuickView.jsx';
 
 const ProductSkeleton = () => (
   <div className="flex flex-col animate-pulse">
@@ -25,6 +26,8 @@ const Products = () => {
   const [sortOrder, setSortOrder] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({ minPrice: '', maxPrice: '', size: '' });
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
   const location = useLocation();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { addToast } = useToast();
@@ -58,6 +61,12 @@ const Products = () => {
     e.preventDefault();
     toggleWishlist(product);
     addToast(isInWishlist(product._id) ? 'Removed from wishlist' : 'Added to wishlist!', 'info');
+  };
+
+  const handleQuickView = (e, product) => {
+    e.preventDefault();
+    setSelectedProduct(product);
+    setIsQuickViewOpen(true);
   };
 
   const sortedProducts = [...products].sort((a, b) => {
@@ -191,10 +200,13 @@ const Products = () => {
                 >
                   <Heart className={`h-4 w-4 ${isInWishlist(product._id) ? 'text-primary fill-primary' : 'text-gray-500'}`} />
                 </button>
-                {/* Quick View on hover */}
-                <div className="absolute bottom-0 left-0 right-0 bg-black/70 backdrop-blur-sm text-white text-xs text-center py-2 opacity-0 group-hover:opacity-100 transition-all font-medium">
-                  View Details
-                </div>
+                {/* Quick View Button */}
+                <button
+                  onClick={e => handleQuickView(e, product)}
+                  className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm text-foreground text-[10px] font-bold uppercase tracking-wider py-2 px-4 rounded-full opacity-0 group-hover:opacity-100 transition-all hover:bg-primary hover:text-white shadow-lg flex items-center gap-1.5"
+                >
+                  <Eye className="h-3 w-3" /> Quick View
+                </button>
               </Link>
               <div className="flex justify-between items-start">
                 <div className="flex-1 min-w-0 mr-2">
@@ -215,6 +227,11 @@ const Products = () => {
           ))}
         </div>
       )}
+      <QuickView 
+        product={selectedProduct} 
+        isOpen={isQuickViewOpen} 
+        onClose={() => setIsQuickViewOpen(false)} 
+      />
     </div>
   );
 };

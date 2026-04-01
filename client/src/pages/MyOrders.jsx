@@ -119,25 +119,59 @@ const MyOrders = () => {
                   >
                     {/* Order Tracking */}
                     {order.orderStatus !== 'Cancelled' && (
-                      <div className="px-5 pt-5">
-                        <div className="flex items-center gap-0">
-                          {steps.map((step, i) => (
-                            <React.Fragment key={step}>
-                              <div className="flex flex-col items-center">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors ${
-                                  i <= stepIndex ? 'bg-primary border-primary text-white' : 'bg-background border-border text-muted-foreground'
-                                }`}>
-                                  {i < stepIndex ? '✓' : i + 1}
+                      <div className="px-5 pt-8 pb-4">
+                        <div className="relative flex items-center justify-between">
+                          {/* Progress Line Background */}
+                          <div className="absolute top-4 left-0 right-0 h-1 bg-muted -z-0 rounded-full" />
+                          {/* Active Progress Line */}
+                          <div 
+                            className="absolute top-4 left-0 h-1 bg-primary transition-all duration-1000 -z-0 rounded-full" 
+                            style={{ width: `${(stepIndex / (steps.length - 1)) * 100}%` }}
+                          />
+
+                          {steps.map((step, i) => {
+                            const isCompleted = i < stepIndex;
+                            const isActive = i === stepIndex;
+                            return (
+                              <div key={step} className="relative z-10 flex flex-col items-center group">
+                                <motion.div
+                                  initial={false}
+                                  animate={{ 
+                                    scale: isActive ? 1.2 : 1,
+                                    backgroundColor: isCompleted || isActive ? 'hsl(var(--primary))' : 'hsl(var(--background))',
+                                    borderColor: isCompleted || isActive ? 'hsl(var(--primary))' : 'hsl(var(--border))'
+                                  }}
+                                  className={`w-9 h-9 rounded-full flex items-center justify-center border-2 transition-colors shadow-sm`}
+                                >
+                                  {isCompleted ? (
+                                    <CheckCircle className="h-5 w-5 text-white" />
+                                  ) : isActive ? (
+                                    <motion.div
+                                      animate={{ scale: [1, 1.2, 1] }}
+                                      transition={{ repeat: Infinity, duration: 2 }}
+                                    >
+                                      <div className="w-2.5 h-2.5 bg-white rounded-full" />
+                                    </motion.div>
+                                  ) : (
+                                    <div className="w-2 h-2 bg-muted-foreground/30 rounded-full" />
+                                  )}
+                                </motion.div>
+                                <div className="mt-3 flex flex-col items-center">
+                                  <span className={`text-[11px] font-bold uppercase tracking-wider ${isCompleted || isActive ? 'text-primary' : 'text-muted-foreground'}`}>
+                                    {step}
+                                  </span>
+                                  {isActive && (
+                                    <motion.span 
+                                      initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                                      className="text-[9px] text-primary/70 font-medium px-2 py-0.5 bg-primary/10 rounded-full mt-1"
+                                    >
+                                      Current State
+                                    </motion.span>
+                                  )}
                                 </div>
-                                <span className={`text-[10px] mt-1 font-medium ${i <= stepIndex ? 'text-primary' : 'text-muted-foreground'}`}>
-                                  {step}
-                                </span>
                               </div>
-                              {i < steps.length - 1 && (
-                                <div className={`flex-1 h-0.5 mb-4 -mx-1 ${i < stepIndex ? 'bg-primary' : 'bg-border'}`} />
-                              )}
-                            </React.Fragment>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
