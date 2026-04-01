@@ -19,7 +19,7 @@ const Login = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await axios.post(`${API_BASE_URL}/api/auth/login`, { email, password });
+      const res = await axios.post(`${API_BASE_URL}/api/auth/login`, { email, password }, { withCredentials: true });
       localStorage.setItem('userInfo', JSON.stringify(res.data));
       navigate('/');
     } catch (err) {

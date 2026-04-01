@@ -27,7 +27,14 @@ const app = express();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:3000', credentials: true }));
+const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:3000')
+    .split(',')
+    .map(u => u.trim());
+
+app.use(cors({ 
+    origin: allowedOrigins, 
+    credentials: true 
+}));
 app.use(morgan('dev'));
 app.use(helmet());
 app.use(cookieParser());

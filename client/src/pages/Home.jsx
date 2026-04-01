@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { API_BASE_URL } from '@/lib/utils';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -27,7 +28,7 @@ const Home = () => {
     setNewsletterStatus('loading');
     setNewsletterMsg('');
     try {
-      const res = await fetch('http://localhost:5001/api/newsletter/subscribe', {
+      const res = await fetch(`${API_BASE_URL}/api/newsletter/subscribe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: newsletterEmail }),
