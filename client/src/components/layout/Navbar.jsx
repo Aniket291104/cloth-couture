@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, User, Menu, X, Search, Heart } from 'lucide-react';
+import { ShoppingCart, User, Menu, X, Search, Heart, Package, ChevronDown, LogOut, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
@@ -8,16 +8,33 @@ import { useWishlist } from '../../context/WishlistContext';
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [keyword, setKeyword] = useState('');
   const { cartItems } = useCart();
   const { wishlist } = useWishlist();
   const location = useLocation();
   const navigate = useNavigate();
+  const userMenuRef = useRef(null);
 
   const userInfo = localStorage.getItem('userInfo') ? JSON.parse(localStorage.getItem('userInfo')) : null;
 
+  // Close user menu on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Close mobile on route change
+  useEffect(() => { setIsOpen(false); }, [location]);
+
   const handleLogout = () => {
     localStorage.removeItem('userInfo');
+    setIsUserMenuOpen(false);
     navigate('/login');
   };
 
@@ -25,82 +42,141 @@ const Navbar = () => {
     e.preventDefault();
     if (keyword.trim()) {
       navigate(`/products?keyword=${encodeURIComponent(keyword)}`);
-      setIsSearchOpen(false);
-      setKeyword('');
     } else {
       navigate('/products');
-      setIsSearchOpen(false);
     }
+    setIsSearchOpen(false);
+    setKeyword('');
   };
+
+  const navLinks = [
+    { to: '/', label: 'Home' },
+    { to: '/products', label: 'Shop' },
+    { to: '/collections', label: 'Collections' },
+  ];
 
   return (
     <header className="fixed top-0 left-0 right-0 bg-background/80 backdrop-blur-md z-50 border-b border-border shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
+          {/* Left */}
           <div className="flex items-center gap-4">
             <button className="md:hidden" onClick={() => setIsOpen(!isOpen)}>
               {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
-            <Link to="/" className="text-2xl font-serif font-bold text-primary-dark">
+            <Link to="/" className="text-2xl font-serif font-bold text-primary-dark tracking-tight">
               Cloth Couture
             </Link>
           </div>
 
+          {/* Nav */}
           <nav className="hidden md:flex items-center space-x-8">
-            <Link to="/" className="text-sm font-medium hover:text-primary transition-colors">Home</Link>
-            <Link to="/products" className="text-sm font-medium hover:text-primary transition-colors">Shop</Link>
-            <Link to="/collections" className="text-sm font-medium hover:text-primary transition-colors">Collections</Link>
-            {userInfo && userInfo.role === 'admin' && (
-              <Link to="/admin/dashboard" className="text-sm font-medium text-primary hover:text-primary-dark transition-colors">Admin Panel</Link>
+            {navLinks.map(link => (
+              <Link key={link.to} to={link.to}
+                className={`text-sm font-medium transition-colors hover:text-primary ${location.pathname === link.to ? 'text-primary' : 'text-foreground'}`}>
+                {link.label}
+              </Link>
+            ))}
+            {userInfo?.role === 'admin' && (
+              <Link to="/admin/dashboard" className="text-sm font-medium text-primary hover:text-primary-dark transition-colors">
+                Admin Panel
+              </Link>
             )}
           </nav>
 
-          <div className="flex items-center space-x-4">
-            {isSearchOpen ? (
-              <form onSubmit={handleSearch} className="flex items-center">
-                <input
-                  type="text"
-                  value={keyword}
-                  onChange={(e) => setKeyword(e.target.value)}
-                  placeholder="Search..."
-                  className="px-2 py-1 text-sm border-b border-primary bg-transparent focus:outline-none w-24 sm:w-32 md:w-48 transition-all"
-                  autoFocus
-                />
-                <button type="button" onClick={() => setIsSearchOpen(false)} className="ml-2 text-muted-foreground hover:text-foreground">
-                  <X className="h-4 w-4" />
+          {/* Right icons */}
+          <div className="flex items-center space-x-3">
+            {/* Search */}
+            <AnimatePresence>
+              {isSearchOpen ? (
+                <motion.form onSubmit={handleSearch} initial={{ width: 0, opacity: 0 }} animate={{ width: 'auto', opacity: 1 }} exit={{ width: 0, opacity: 0 }} className="flex items-center overflow-hidden">
+                  <input
+                    type="text" value={keyword} onChange={e => setKeyword(e.target.value)}
+                    placeholder="Search products..."
+                    className="px-3 py-1.5 text-sm border-b border-primary bg-transparent focus:outline-none w-36 md:w-48"
+                    autoFocus
+                  />
+                  <button type="button" onClick={() => setIsSearchOpen(false)} className="ml-1 text-muted-foreground hover:text-foreground">
+                    <X className="h-4 w-4" />
+                  </button>
+                </motion.form>
+              ) : (
+                <button onClick={() => setIsSearchOpen(true)} className="text-foreground hover:text-primary transition-colors p-1">
+                  <Search className="h-5 w-5" />
                 </button>
-              </form>
-            ) : (
-              <button onClick={() => setIsSearchOpen(true)} className="text-foreground hover:text-primary transition-colors">
-                <Search className="h-5 w-5" />
-              </button>
-            )}
+              )}
+            </AnimatePresence>
 
-            {/* Wishlist icon */}
-            <Link to="/wishlist" className="relative text-foreground hover:text-primary transition-colors">
+            {/* Wishlist */}
+            <Link to="/wishlist" className="relative text-foreground hover:text-primary transition-colors p-1">
               <Heart className="h-5 w-5" />
               {wishlist.length > 0 && (
-                <span className="absolute -top-2 -right-2 bg-primary text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 bg-primary text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">
                   {wishlist.length}
                 </span>
               )}
             </Link>
 
-            {/* Cart icon */}
-            <Link to="/cart" className="relative text-foreground hover:text-primary transition-colors">
+            {/* Cart */}
+            <Link to="/cart" className="relative text-foreground hover:text-primary transition-colors p-1">
               <ShoppingCart className="h-5 w-5" />
-              <span className="absolute -top-2 -right-2 bg-primary text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 bg-primary text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">
                 {cartItems.length}
               </span>
             </Link>
 
+            {/* User menu */}
             {userInfo ? (
-              <div className="flex items-center space-x-4">
-                <span className="text-sm font-medium text-primary-dark cursor-default">Hi, {userInfo.name.split(' ')[0]}</span>
-                <button onClick={handleLogout} className="text-sm font-medium text-muted-foreground hover:text-destructive transition-colors">Logout</button>
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  onClick={() => setIsUserMenuOpen(v => !v)}
+                  className="flex items-center gap-1.5 text-sm font-medium text-primary-dark hover:text-primary transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center text-primary font-bold text-sm">
+                    {userInfo.name?.charAt(0).toUpperCase()}
+                  </div>
+                  <ChevronDown className={`h-3 w-3 transition-transform hidden sm:block ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+                <AnimatePresence>
+                  {isUserMenuOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                      className="absolute right-0 mt-2 w-52 bg-background border border-border rounded-2xl shadow-xl overflow-hidden z-50"
+                    >
+                      <div className="px-4 py-3 border-b border-border">
+                        <p className="text-sm font-semibold text-foreground truncate">{userInfo.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{userInfo.email}</p>
+                      </div>
+                      <div className="py-1">
+                        <Link to="/profile" onClick={() => setIsUserMenuOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors">
+                          <Settings className="h-4 w-4 text-muted-foreground" /> My Profile
+                        </Link>
+                        <Link to="/my-orders" onClick={() => setIsUserMenuOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors">
+                          <Package className="h-4 w-4 text-muted-foreground" /> My Orders
+                        </Link>
+                        {userInfo.role === 'admin' && (
+                          <Link to="/admin/dashboard" onClick={() => setIsUserMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-primary hover:bg-muted transition-colors">
+                            <User className="h-4 w-4" /> Admin Panel
+                          </Link>
+                        )}
+                        <div className="border-t border-border mt-1 pt-1">
+                          <button onClick={handleLogout}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 transition-colors">
+                            <LogOut className="h-4 w-4" /> Logout
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             ) : (
-              <Link to="/login" className="text-foreground hover:text-primary transition-colors">
+              <Link to="/login" className="text-foreground hover:text-primary transition-colors p-1">
                 <User className="h-5 w-5" />
               </Link>
             )}
@@ -108,22 +184,33 @@ const Navbar = () => {
         </div>
       </div>
 
+      {/* Mobile Menu */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
+            initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
             className="md:hidden overflow-hidden bg-background border-b border-border"
           >
-            <div className="flex flex-col px-4 py-4 space-y-4">
-              <Link to="/" className="text-sm font-medium hover:text-primary transition-colors" onClick={() => setIsOpen(false)}>Home</Link>
-              <Link to="/products" className="text-sm font-medium hover:text-primary transition-colors" onClick={() => setIsOpen(false)}>Shop</Link>
-              <Link to="/collections" className="text-sm font-medium hover:text-primary transition-colors" onClick={() => setIsOpen(false)}>Collections</Link>
-              <Link to="/wishlist" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-2" onClick={() => setIsOpen(false)}>
-                <Heart className="h-4 w-4" /> Wishlist {wishlist.length > 0 && `(${wishlist.length})`}
-              </Link>
-              <Link to="/about" className="text-sm font-medium hover:text-primary transition-colors" onClick={() => setIsOpen(false)}>Our Story</Link>
+            <div className="flex flex-col px-4 py-4 space-y-1">
+              {navLinks.map(link => (
+                <Link key={link.to} to={link.to}
+                  className="py-2.5 px-3 text-sm font-medium hover:text-primary hover:bg-muted rounded-lg transition-colors">
+                  {link.label}
+                </Link>
+              ))}
+              {userInfo && (
+                <>
+                  <Link to="/my-orders" className="py-2.5 px-3 text-sm font-medium hover:text-primary hover:bg-muted rounded-lg transition-colors flex items-center gap-2">
+                    <Package className="h-4 w-4" /> My Orders
+                  </Link>
+                  <Link to="/profile" className="py-2.5 px-3 text-sm font-medium hover:text-primary hover:bg-muted rounded-lg transition-colors flex items-center gap-2">
+                    <Settings className="h-4 w-4" /> My Profile
+                  </Link>
+                  <button onClick={handleLogout} className="py-2.5 px-3 text-sm font-medium text-destructive hover:bg-destructive/10 rounded-lg transition-colors text-left">
+                    Logout
+                  </button>
+                </>
+              )}
             </div>
           </motion.div>
         )}

@@ -12,6 +12,7 @@ import orderRoutes from './routes/orderRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 import newsletterRoutes from './routes/newsletterRoutes.js';
+import couponRoutes from './routes/couponRoutes.js';
 import path from 'path';
 import fs from 'fs';
 
@@ -45,12 +46,12 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/newsletter', newsletterRoutes);
+app.use('/api/coupons', couponRoutes);
 
 const __dirname = path.resolve();
 if (!fs.existsSync(path.join(__dirname, 'uploads'))) {
   fs.mkdirSync(path.join(__dirname, 'uploads'));
 }
-// Make the uploads folder accessible to the frontend
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.get('/api/health', (req, res) => {

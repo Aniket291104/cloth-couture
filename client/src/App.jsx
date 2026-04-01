@@ -10,6 +10,9 @@ import Wishlist from './pages/Wishlist';
 import ProductDetails from './pages/ProductDetails';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
+import MyOrders from './pages/MyOrders';
+import Profile from './pages/Profile';
+import OrderSuccess from './pages/OrderSuccess';
 import ProductCreate from './pages/admin/ProductCreate';
 import AdminLayout from './components/layout/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -17,6 +20,7 @@ import AdminProducts from './pages/admin/AdminProducts';
 import AdminOrders from './pages/admin/AdminOrders';
 import ProductEdit from './pages/admin/ProductEdit';
 import AdminSubscribers from './pages/admin/AdminSubscribers';
+import AdminCoupons from './pages/admin/AdminCoupons';
 
 function App() {
   return (
@@ -32,6 +36,9 @@ function App() {
           <Route path="products/:id" element={<ProductDetails />} />
           <Route path="cart" element={<Cart />} />
           <Route path="checkout" element={<Checkout />} />
+          <Route path="my-orders" element={<MyOrders />} />
+          <Route path="profile" element={<Profile />} />
+          <Route path="order-success" element={<OrderSuccess />} />
           <Route path="admin" element={<AdminLayout />}>
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="products" element={<AdminProducts />} />
@@ -39,6 +46,7 @@ function App() {
             <Route path="product/create" element={<ProductCreate />} />
             <Route path="product/:id/edit" element={<ProductEdit />} />
             <Route path="subscribers" element={<AdminSubscribers />} />
+            <Route path="coupons" element={<AdminCoupons />} />
           </Route>
         </Route>
       </Routes>

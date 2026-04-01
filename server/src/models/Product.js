@@ -22,6 +22,10 @@ const productSchema = new mongoose.Schema({
         type: [String],
         required: true,
     },
+    colors: {
+        type: [String],
+        default: [],
+    },
     images: {
         type: [String],
         required: true,
@@ -30,6 +34,18 @@ const productSchema = new mongoose.Schema({
         type: Number,
         required: true,
         default: 0,
+    },
+    rating: {
+        type: Number,
+        default: 0,
+    },
+    numReviews: {
+        type: Number,
+        default: 0,
+    },
+    isFeatured: {
+        type: Boolean,
+        default: false,
     },
 }, {
     timestamps: true,

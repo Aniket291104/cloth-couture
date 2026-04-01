@@ -1,115 +1,168 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Eye } from 'lucide-react';
+import { ChevronDown, RefreshCw } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/utils';
+
+const ORDER_STATUSES = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
+
+const statusColors = {
+  Pending:    'bg-yellow-100 text-yellow-800',
+  Processing: 'bg-blue-100 text-blue-800',
+  Shipped:    'bg-purple-100 text-purple-800',
+  Delivered:  'bg-green-100 text-green-800',
+  Cancelled:  'bg-red-100 text-red-800',
+};
 
 const AdminOrders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [updatingId, setUpdatingId] = useState(null);
+  const [search, setSearch] = useState('');
+
+  const getConfig = () => {
+    const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+    return { headers: { Authorization: `Bearer ${userInfo?.token}` } };
+  };
 
   const fetchOrders = async () => {
+    setLoading(true);
     try {
-      const userInfo = JSON.parse(localStorage.getItem('userInfo'));
-      const config = {
-        headers: {
-          Authorization: `Bearer ${userInfo.token}`,
-        },
-      };
-      const { data } = await axios.get(`${API_BASE_URL}/api/orders`, config);
+      const { data } = await axios.get(`${API_BASE_URL}/api/orders`, getConfig());
       setOrders(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
       setLoading(false);
-    } catch (err) {
-      setError(err.response && err.response.data.message ? err.response.data.message : err.message);
-      setLoading(false);
     }
   };
 
-  const deliverHandler = async (id) => {
+  const updateStatus = async (id, status) => {
+    setUpdatingId(id);
     try {
-      const userInfo = JSON.parse(localStorage.getItem('userInfo'));
-      const config = {
-        headers: {
-          Authorization: `Bearer ${userInfo.token}`,
-        },
-      };
-      await axios.put(`${API_BASE_URL}/api/orders/${id}/deliver`, {}, config);
-      fetchOrders();
+      await axios.put(`${API_BASE_URL}/api/orders/${id}/status`, { status }, getConfig());
+      setOrders(prev => prev.map(o => o._id === id ? { ...o, orderStatus: status } : o));
     } catch (err) {
-      alert(err.response && err.response.data.message ? err.response.data.message : err.message);
+      alert(err.response?.data?.message || 'Update failed');
+    } finally {
+      setUpdatingId(null);
     }
   };
 
-  const payHandler = async (id) => {
+  const markPaid = async (id) => {
+    setUpdatingId(id);
     try {
-      const userInfo = JSON.parse(localStorage.getItem('userInfo'));
-      const config = {
-        headers: {
-          Authorization: `Bearer ${userInfo.token}`,
-        },
-      };
-      await axios.put(`${API_BASE_URL}/api/orders/${id}/pay`, {}, config);
-      fetchOrders();
+      await axios.put(`${API_BASE_URL}/api/orders/${id}/pay`, {}, getConfig());
+      setOrders(prev => prev.map(o => o._id === id ? { ...o, paymentStatus: 'Paid' } : o));
     } catch (err) {
-      alert(err.response && err.response.data.message ? err.response.data.message : err.message);
+      alert(err.response?.data?.message || 'Update failed');
+    } finally {
+      setUpdatingId(null);
     }
   };
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
+  useEffect(() => { fetchOrders(); }, []);
 
-  if (loading) return <div className="p-8 text-center text-gray-500">Loading orders...</div>;
-  if (error) return <div className="p-8 text-center text-red-500">{error}</div>;
+  const filtered = orders.filter(o =>
+    o._id.includes(search) ||
+    (o.userId?.name || '').toLowerCase().includes(search.toLowerCase()) ||
+    (o.userId?.email || '').toLowerCase().includes(search.toLowerCase())
+  );
+
+  if (loading) return (
+    <div className="flex justify-center items-center h-64">
+      <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-primary" />
+    </div>
+  );
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-800">Orders List</h1>
+    <div className="space-y-5">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div>
+          <h1 className="text-2xl font-serif font-bold text-foreground">Orders</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{orders.length} total orders</p>
+        </div>
+        <div className="flex gap-3 w-full sm:w-auto">
+          <input
+            type="text" placeholder="Search by ID, name, email..."
+            value={search} onChange={e => setSearch(e.target.value)}
+            className="border border-border rounded-xl px-4 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary flex-1 sm:w-64"
+          />
+          <button onClick={fetchOrders} className="p-2 rounded-xl border border-border hover:bg-muted transition-colors">
+            <RefreshCw className="h-4 w-4 text-muted-foreground" />
+          </button>
+        </div>
       </div>
-      
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+
+      <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left">
             <thead>
-              <tr className="bg-gray-50 text-gray-500 text-sm">
-                <th className="p-4 font-medium">ID</th>
-                <th className="p-4 font-medium">USER</th>
-                <th className="p-4 font-medium">DATE</th>
-                <th className="p-4 font-medium">TOTAL</th>
-                <th className="p-4 font-medium">PAID</th>
-                <th className="p-4 font-medium">DELIVERY</th>
-                <th className="p-4 font-medium">ACTIONS</th>
+              <tr className="bg-muted/50 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <th className="px-4 py-3">Order ID</th>
+                <th className="px-4 py-3">Customer</th>
+                <th className="px-4 py-3">Date</th>
+                <th className="px-4 py-3">Total</th>
+                <th className="px-4 py-3">Payment</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Actions</th>
               </tr>
             </thead>
-            <tbody>
-              {orders.map(order => (
-                <tr key={order._id} className="border-t border-gray-50 hover:bg-gray-50">
-                  <td className="p-4 text-sm text-gray-500 font-mono">{order._id.substring(0, 8)}</td>
-                  <td className="p-4 text-sm font-medium text-gray-900">{order.userId?.name || 'Guest'}</td>
-                  <td className="p-4 text-sm text-gray-600">{new Date(order.createdAt).toLocaleDateString()}</td>
-                  <td className="p-4 text-sm text-gray-600">${order.totalAmount?.toFixed(2)}</td>
-                  <td className="p-4 text-sm">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${order.paymentStatus === 'Paid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+            <tbody className="divide-y divide-border">
+              {filtered.map(order => (
+                <tr key={order._id} className="hover:bg-muted/30 transition-colors">
+                  <td className="px-4 py-3.5 text-xs font-mono text-muted-foreground">
+                    #{order._id.slice(-8).toUpperCase()}
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <p className="text-sm font-medium text-foreground">{order.userId?.name || 'Guest'}</p>
+                    <p className="text-xs text-muted-foreground">{order.userId?.email || ''}</p>
+                  </td>
+                  <td className="px-4 py-3.5 text-sm text-muted-foreground">
+                    {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </td>
+                  <td className="px-4 py-3.5 text-sm font-semibold text-foreground">
+                    ₹{order.totalAmount?.toFixed(2)}
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <span className={`inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full ${order.paymentStatus === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                       {order.paymentStatus}
                     </span>
+                    {order.paymentStatus !== 'Paid' && (
+                      <button
+                        onClick={() => markPaid(order._id)}
+                        disabled={updatingId === order._id}
+                        className="ml-2 text-xs text-green-600 hover:underline disabled:opacity-50"
+                      >
+                        Mark paid
+                      </button>
+                    )}
                   </td>
-                  <td className="p-4 text-sm">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${order.orderStatus === 'Delivered' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                      {order.orderStatus || 'Pending'}
-                    </span>
-                  </td>
-                  <td className="p-4 text-sm">
-                    <div className="flex flex-col gap-2">
-                      {order.paymentStatus !== 'Paid' && (
-                        <button onClick={() => payHandler(order._id)} className="bg-green-500 text-white px-3 py-1 rounded text-xs hover:bg-green-600 transition-colors">
-                          Mark Paid
-                        </button>
+                  <td className="px-4 py-3.5">
+                    <div className="relative">
+                      <select
+                        value={order.orderStatus}
+                        onChange={e => updateStatus(order._id, e.target.value)}
+                        disabled={updatingId === order._id || order.orderStatus === 'Delivered' || order.orderStatus === 'Cancelled'}
+                        className={`appearance-none text-xs font-medium px-3 py-1.5 pr-7 rounded-full border cursor-pointer transition-all focus:outline-none disabled:cursor-not-allowed ${statusColors[order.orderStatus] || 'bg-gray-100 text-gray-700'} border-transparent`}
+                      >
+                        {ORDER_STATUSES.map(s => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                      {!['Delivered','Cancelled'].includes(order.orderStatus) && (
+                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 pointer-events-none" />
                       )}
-                      {order.orderStatus !== 'Delivered' && (
-                        <button onClick={() => deliverHandler(order._id)} className="bg-blue-500 text-white px-3 py-1 rounded text-xs hover:bg-blue-600 transition-colors">
-                          Mark Delivered
-                        </button>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <div className="text-xs text-muted-foreground">
+                      <p className="capitalize">{order.paymentMethod}</p>
+                      {order.couponCode && <p className="text-green-600">{order.couponCode}</p>}
+                      {order.address?.phone && (
+                        <p className="text-foreground font-medium mt-0.5">📞 {order.address.phone}</p>
+                      )}
+                      {order.address?.alternatePhone && (
+                        <p className="text-muted-foreground">Alt: {order.address.alternatePhone}</p>
                       )}
                     </div>
                   </td>
@@ -117,8 +170,8 @@ const AdminOrders = () => {
               ))}
             </tbody>
           </table>
-          {orders.length === 0 && (
-            <div className="p-8 text-center text-gray-500">No orders found</div>
+          {filtered.length === 0 && (
+            <div className="p-8 text-center text-muted-foreground">No orders found</div>
           )}
         </div>
       </div>

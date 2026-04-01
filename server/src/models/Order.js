@@ -18,6 +18,7 @@ const orderSchema = new mongoose.Schema({
                 ref: 'Product',
             },
             size: { type: String, required: true },
+            color: { type: String, default: '' },
         }
     ],
     totalAmount: {
@@ -38,13 +39,22 @@ const orderSchema = new mongoose.Schema({
         type: String,
         required: true,
         default: 'Pending',
+        enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
     },
     address: {
         address: { type: String, required: true },
         city: { type: String, required: true },
         postalCode: { type: String, required: true },
         country: { type: String, required: true },
+        phone: { type: String, required: true, default: '' },
+        alternatePhone: { type: String, default: '' },
     },
+    couponCode: { type: String, default: '' },
+    discountAmount: { type: Number, default: 0 },
+    razorpayOrderId: { type: String, default: '' },
+    razorpayPaymentId: { type: String, default: '' },
+    paidAt: { type: Date },
+    deliveredAt: { type: Date },
 }, {
     timestamps: true,
 });

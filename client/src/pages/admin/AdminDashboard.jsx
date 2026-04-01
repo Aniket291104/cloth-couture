@@ -1,141 +1,159 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Package, ShoppingCart, Users, DollarSign } from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  LineChart, Line, Area, AreaChart,
+} from 'recharts';
+import { TrendingUp, ShoppingBag, Package, Users, IndianRupee, Clock, Truck, CheckCircle } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/utils';
 
+const StatCard = ({ icon, label, value, sub, color }) => (
+  <div className="bg-card border border-border rounded-2xl p-5 flex items-center gap-4">
+    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}>
+      {icon}
+    </div>
+    <div>
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className="text-2xl font-bold text-foreground mt-0.5">{value}</p>
+      {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
+    </div>
+  </div>
+);
+
 const AdminDashboard = () => {
-  const [stats, setStats] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const userInfo = JSON.parse(localStorage.getItem('userInfo'));
-        const config = {
-          headers: {
-            Authorization: `Bearer ${userInfo.token}`,
-          },
-        };
-        const { data } = await axios.get(`${API_BASE_URL}/api/admin/stats`, config);
-        setStats(data);
-        setLoading(false);
-    } catch (err) {
-      setError(err.response && err.response.data.message ? err.response.data.message : err.message);
-      setLoading(false);
-    }
-  };
+    const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+    const config = { headers: { Authorization: `Bearer ${userInfo?.token}` } };
 
-  const deliverHandler = async (id) => {
-    try {
-      const userInfo = JSON.parse(localStorage.getItem('userInfo'));
-      const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
-      await axios.put(`${API_BASE_URL}/api/orders/${id}/deliver`, {}, config);
-      fetchStats();
-    } catch (err) {
-      alert(err.response && err.response.data.message ? err.response.data.message : err.message);
-    }
-  };
-
-  const payHandler = async (id) => {
-    try {
-      const userInfo = JSON.parse(localStorage.getItem('userInfo'));
-      const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
-      await axios.put(`${API_BASE_URL}/api/orders/${id}/pay`, {}, config);
-      fetchStats();
-    } catch (err) {
-      alert(err.response && err.response.data.message ? err.response.data.message : err.message);
-    }
-  };
-
-    fetchStats();
+    Promise.all([
+      axios.get(`${API_BASE_URL}/api/orders/analytics`, config),
+      axios.get(`${API_BASE_URL}/api/products`),
+    ]).then(([analyticsRes, productsRes]) => {
+      setAnalytics(analyticsRes.data);
+      setProducts(productsRes.data);
+    }).catch(console.error)
+      .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="p-8 text-center text-gray-500">Loading dashboard...</div>;
-  if (error) return <div className="p-8 text-center text-red-500">{error}</div>;
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-primary" />
+      </div>
+    );
+  }
 
-  const cards = [
-    { title: 'Total Sales', value: `$${stats.totalSales}`, icon: <DollarSign className="w-8 h-8 text-green-500" />, bg: 'bg-green-100' },
-    { title: 'Total Orders', value: stats.totalOrders, icon: <ShoppingCart className="w-8 h-8 text-blue-500" />, bg: 'bg-blue-100' },
-    { title: 'Total Products', value: stats.totalProducts, icon: <Package className="w-8 h-8 text-purple-500" />, bg: 'bg-purple-100' },
-    { title: 'Total Users', value: stats.totalUsers, icon: <Users className="w-8 h-8 text-orange-500" />, bg: 'bg-orange-100' },
-  ];
+  const lowStock = products.filter(p => p.stock > 0 && p.stock <= 5);
+  const outOfStock = products.filter(p => p.stock === 0);
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {cards.map((card, index) => (
-          <div key={index} className="bg-white rounded-xl shadow-sm p-6 flex items-center space-x-4 border border-gray-100">
-            <div className={`p-4 rounded-full ${card.bg}`}>
-              {card.icon}
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">{card.title}</p>
-              <h3 className="text-2xl font-bold text-gray-900">{card.value}</h3>
-            </div>
-          </div>
-        ))}
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-serif font-bold text-foreground">Dashboard Overview</h1>
+        <p className="text-muted-foreground text-sm mt-0.5">Welcome back! Here's what's happening.</p>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 mt-8">
-        <div className="p-6 border-b border-gray-100">
-          <h2 className="text-xl font-bold text-gray-800">Recent Orders</h2>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <StatCard
+          icon={<IndianRupee className="h-6 w-6 text-green-600" />}
+          label="Total Revenue" color="bg-green-50"
+          value={`₹${(analytics?.totalRevenue || 0).toLocaleString('en-IN')}`}
+          sub="From paid orders"
+        />
+        <StatCard
+          icon={<ShoppingBag className="h-6 w-6 text-blue-600" />}
+          label="Total Orders" color="bg-blue-50"
+          value={analytics?.totalOrders || 0}
+          sub={`${analytics?.pendingOrders || 0} pending`}
+        />
+        <StatCard
+          icon={<Package className="h-6 w-6 text-purple-600" />}
+          label="Total Products" color="bg-purple-50"
+          value={products.length}
+          sub={`${outOfStock.length} out of stock`}
+        />
+        <StatCard
+          icon={<CheckCircle className="h-6 w-6 text-amber-600" />}
+          label="Delivered" color="bg-amber-50"
+          value={analytics?.deliveredOrders || 0}
+          sub="Successfully fulfilled"
+        />
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Monthly Revenue */}
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" /> Monthly Revenue (₹)
+          </h2>
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={analytics?.monthlyRevenue || []}>
+              <defs>
+                <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#c8956c" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#c8956c" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} tickFormatter={v => `₹${v}`} />
+              <Tooltip formatter={v => [`₹${v}`, 'Revenue']} />
+              <Area type="monotone" dataKey="revenue" stroke="#c8956c" fill="url(#revenueGrad)" strokeWidth={2} />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
-        <div className="p-0 overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50 text-gray-500 text-sm">
-                <th className="p-4 font-medium">Order ID</th>
-                <th className="p-4 font-medium">User</th>
-                <th className="p-4 font-medium">Date</th>
-                <th className="p-4 font-medium">Total</th>
-                <th className="p-4 font-medium">Payment</th>
-                <th className="p-4 font-medium">Delivery</th>
-                <th className="p-4 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stats.recentOrders?.map(order => (
-                <tr key={order._id} className="border-b border-gray-50 hover:bg-gray-50">
-                  <td className="p-4 text-sm text-gray-900 font-mono">{order._id.substring(0, 8)}...</td>
-                  <td className="p-4 text-sm text-gray-900">{order.userId?.name || 'Guest'}</td>
-                  <td className="p-4 text-sm text-gray-500">{new Date(order.createdAt).toLocaleDateString()}</td>
-                  <td className="p-4 text-sm font-medium text-gray-900">${order.totalAmount?.toFixed(2)}</td>
-                  <td className="p-4 text-sm">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${order.paymentStatus === 'Paid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                      {order.paymentStatus}
-                    </span>
-                  </td>
-                  <td className="p-4 text-sm">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${order.orderStatus === 'Delivered' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                      {order.orderStatus || 'Pending'}
-                    </span>
-                  </td>
-                  <td className="p-4 text-sm w-32">
-                    <div className="flex flex-col gap-2">
-                      {order.paymentStatus !== 'Paid' && (
-                        <button onClick={() => payHandler(order._id)} className="bg-green-500 text-white px-3 py-1 rounded text-xs hover:bg-green-600 transition-colors">
-                          Mark Paid
-                        </button>
-                      )}
-                      {order.orderStatus !== 'Delivered' && (
-                        <button onClick={() => deliverHandler(order._id)} className="bg-blue-500 text-white px-3 py-1 rounded text-xs hover:bg-blue-600 transition-colors">
-                          Mark Delivered
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {(!stats.recentOrders || stats.recentOrders.length === 0) && (
-            <div className="p-8 text-center text-gray-500">No recent orders</div>
-          )}
+
+        {/* Monthly Orders */}
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+            <ShoppingBag className="h-5 w-5 text-primary" /> Monthly Orders
+          </h2>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={analytics?.monthlyRevenue || []}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} />
+              <Tooltip />
+              <Bar dataKey="orders" fill="#6b7f5e" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
+
+      {/* Low Stock Alerts */}
+      {(lowStock.length > 0 || outOfStock.length > 0) && (
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+            <Package className="h-5 w-5 text-amber-500" /> Inventory Alerts
+          </h2>
+          <div className="space-y-2">
+            {outOfStock.map(p => (
+              <div key={p._id} className="flex items-center justify-between p-3 bg-red-50 rounded-xl border border-red-200">
+                <div className="flex items-center gap-3">
+                  <img src={p.images?.[0]} alt={p.name} className="w-10 h-10 object-cover rounded-lg" />
+                  <span className="text-sm font-medium text-foreground">{p.name}</span>
+                </div>
+                <span className="text-xs font-semibold text-red-600 bg-red-100 px-2.5 py-1 rounded-full">Out of Stock</span>
+              </div>
+            ))}
+            {lowStock.map(p => (
+              <div key={p._id} className="flex items-center justify-between p-3 bg-amber-50 rounded-xl border border-amber-200">
+                <div className="flex items-center gap-3">
+                  <img src={p.images?.[0]} alt={p.name} className="w-10 h-10 object-cover rounded-lg" />
+                  <span className="text-sm font-medium text-foreground">{p.name}</span>
+                </div>
+                <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full">Only {p.stock} left</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

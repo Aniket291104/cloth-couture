@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import RecentlyViewed from '../components/RecentlyViewed';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -176,6 +177,9 @@ const Home = () => {
           </motion.div>
         </div>
       </section>
+
+      {/* Recently Viewed */}
+      <RecentlyViewed />
 
       {/* Newsletter */}
       <section className="py-24 px-4 text-center max-w-3xl mx-auto">
