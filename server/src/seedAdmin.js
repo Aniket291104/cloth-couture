@@ -13,17 +13,23 @@ connectDB();
 
 const importAdmin = async () => {
     try {
-        await User.deleteMany({ email: 'admin@clothcouture.com' });
+        const email    = process.env.ADMIN_EMAIL    || 'admin@clothcouture.com';
+        const password = process.env.ADMIN_PASSWORD || 'Admin@12345';
+        const name     = process.env.ADMIN_NAME     || 'Admin User';
+
+        await User.deleteMany({ email });
 
         const adminUser = new User({
-            name: 'Admin User',
-            email: 'admin@clothcouture.com',
-            password: 'password123',
+            name,
+            email,
+            password,
             role: 'admin',
         });
 
         await adminUser.save();
-        console.log('✅ Admin user created: admin@clothcouture.com / password123');
+        console.log(`✅ Admin user created!`);
+        console.log(`   Email   : ${email}`);
+        console.log(`   Password: ${password}`);
         process.exit();
     } catch (error) {
         console.error(`❌ Error: ${error.message}`);
