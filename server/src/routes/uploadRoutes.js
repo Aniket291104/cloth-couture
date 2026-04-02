@@ -1,12 +1,21 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 
 const router = express.Router();
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadsPath = path.join(__dirname, '../../uploads');
+
 const storage = multer.diskStorage({
   destination(req, file, cb) {
-    cb(null, 'uploads/');
+    if (!fs.existsSync(uploadsPath)) {
+      fs.mkdirSync(uploadsPath, { recursive: true });
+    }
+    cb(null, uploadsPath);
   },
   filename(req, file, cb) {
     cb(
@@ -39,8 +48,11 @@ router.post('/', upload.array('images', 10), (req, res) => {
   if (!req.files || req.files.length === 0) {
     return res.status(400).send({ message: 'No file uploaded' });
   }
-  // Convert Windows backslashes to forward slashes for the URLs
-  const fileUrls = req.files.map(file => `http://localhost:5001/${file.path.replace(/\\/g, '/')}`);
+  // Dynamically determine the base URL
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  // Return just the URL path that the main server can serve
+  const fileUrls = req.files.map(file => `${baseUrl}/uploads/${file.filename}`);
+  console.log(`Generated file URLs: ${JSON.stringify(fileUrls)}`);
   res.send(fileUrls);
 });
 

@@ -8,3 +8,4 @@ coverage
 *.log
 client/dist
 server/uploads
+uploads

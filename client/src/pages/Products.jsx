@@ -32,6 +32,7 @@ const Products = () => {
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { addToast } = useToast();
 
+  const [categories, setCategories] = useState(['All']);
   const searchParams = new URLSearchParams(location.search);
   const category = searchParams.get('category');
   const keyword = searchParams.get('keyword');
@@ -48,6 +49,11 @@ const Products = () => {
         if (filters.size) params.append('size', filters.size);
         const { data } = await axios.get(`${API_BASE_URL}/api/products?${params.toString()}`);
         setProducts(data);
+        
+        // Also fetch all categories to update pills (independent of current filter)
+        const { data: allProducts } = await axios.get(`${API_BASE_URL}/api/products`);
+        const uniqueCats = ['All', ...new Set(allProducts.map(p => p.category).filter(Boolean))];
+        setCategories(uniqueCats);
       } catch {
         addToast('Failed to load products', 'error');
       } finally {
@@ -149,8 +155,8 @@ const Products = () => {
 
       {/* Category Pills */}
       <div className="flex gap-2 overflow-x-auto pb-2 mb-8 scrollbar-none">
-        {CATEGORIES.map(cat => {
-          const active = (cat === 'All' && !category) || cat === category;
+        {categories.map(cat => {
+          const active = (cat === 'All' && !category) || cat.toLowerCase() === category?.toLowerCase();
           return (
             <a key={cat} href={cat === 'All' ? '/products' : `/products?category=${cat}`}
               className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${active ? 'bg-primary text-white border-primary' : 'bg-background border-border text-foreground hover:border-primary hover:text-primary'}`}

@@ -81,7 +81,7 @@ const AdminProducts = () => {
                   </td>
                   <td className="p-4 text-sm text-center">
                     <div className="flex justify-center space-x-3">
-                      <Link to={`/admin/product/${product._id}/edit`} className="text-blue-500 hover:text-blue-700">
+                      <Link to={`/admin/product/edit/${product._id}`} className="text-blue-500 hover:text-blue-700">
                         <Edit size={18} />
                       </Link>
                       <button onClick={() => deleteHandler(product._id)} className="text-red-500 hover:text-red-700">

@@ -37,7 +37,9 @@ app.use(cors({
     credentials: true 
 }));
 app.use(morgan('dev'));
-app.use(helmet());
+app.use(helmet({
+    crossOriginResourcePolicy: false,
+}));
 app.use(cookieParser());
 
 app.use('/api/auth', authRoutes);
@@ -48,11 +50,18 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/newsletter', newsletterRoutes);
 app.use('/api/coupons', couponRoutes);
 
-const __dirname = path.resolve();
-if (!fs.existsSync(path.join(__dirname, 'uploads'))) {
-  fs.mkdirSync(path.join(__dirname, 'uploads'));
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const serverRoot = path.join(__dirname, '..');
+const uploadsPath = path.join(serverRoot, 'uploads');
+
+if (!fs.existsSync(uploadsPath)) {
+  fs.mkdirSync(uploadsPath);
 }
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+app.use('/uploads', (req, res, next) => {
+  console.log(`Request for upload: ${req.url}`);
+  next();
+}, express.static(uploadsPath));
 
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is running' });

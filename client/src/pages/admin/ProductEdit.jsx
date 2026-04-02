@@ -173,21 +173,57 @@ const ProductEdit = () => {
               )}
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Category</label>
-              <Input type="text" placeholder="Enter category" value={category} onChange={(e) => setCategory(e.target.value)} required />
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Collection / Category</label>
+                <select 
+                  className="w-full h-10 px-3 py-2 border border-input rounded-md bg-background text-foreground focus:ring-2 focus:ring-ring outline-none"
+                  value={['dresses', 'shirts', 'pants', 'accessories'].includes(category) ? category : (category ? 'other' : '')} 
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === 'other') {
+                      setCategory('');
+                    } else {
+                      setCategory(val);
+                    }
+                  }} 
+                  required
+                >
+                  <option value="">Select a collection</option>
+                  <option value="dresses">Linen Dresses</option>
+                  <option value="shirts">Cotton Shirts</option>
+                  <option value="pants">Casual Pants</option>
+                  <option value="accessories">Accessories</option>
+                  <option value="other">New / Other Collection</option>
+                </select>
+              </div>
+
+              {(!['dresses', 'shirts', 'pants', 'accessories'].includes(category) && category !== '') || (category === '' && !['dresses', 'shirts', 'pants', 'accessories'].includes(category)) ? (
+                <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">New Collection Name</label>
+                  <Input 
+                    type="text" 
+                    placeholder="e.g. Saree, Winter Wear, etc." 
+                    className="border-primary/30 focus:border-primary text-foreground placeholder:text-muted-foreground/50"
+                    value={category} 
+                    onChange={(e) => setCategory(e.target.value)} 
+                    required 
+                  />
+                  <p className="text-[10px] text-muted-foreground italic">Type the name of the new collection here.</p>
+                </div>
+              ) : null}
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Sizes (comma separated)</label>
-              <Input type="text" placeholder="S, M, L, XL" value={sizes} onChange={(e) => setSizes(e.target.value)} required />
+              <label className="text-sm font-medium text-foreground">Sizes (comma separated)</label>
+              <Input type="text" placeholder="S, M, L, XL" className="text-foreground border-input" value={sizes} onChange={(e) => setSizes(e.target.value)} required />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Description</label>
+              <label className="text-sm font-medium text-foreground">Description</label>
               <textarea 
-                className="w-full flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                placeholder="Enter description" 
+                className="w-full flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all font-sans"
+                placeholder="Describe the artisan work, fabric, and fit..." 
                 value={description} 
                 onChange={(e) => setDescription(e.target.value)}
                 required

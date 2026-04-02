@@ -8,7 +8,9 @@ export const getProducts = async (req, res) => {
     const keyword = req.query.keyword
         ? { name: { $regex: req.query.keyword, $options: 'i' } }
         : {};
-    const category = req.query.category ? { category: req.query.category } : {};
+    const category = req.query.category 
+        ? { category: { $regex: new RegExp(`^${req.query.category}$`, 'i') } } 
+        : {};
     const color = req.query.color ? { colors: req.query.color } : {};
 
     // Price range filter
