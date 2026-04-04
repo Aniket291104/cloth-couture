@@ -24,17 +24,27 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: '',
     },
-    address: {
-        address: { type: String, default: '' },
-        city: { type: String, default: '' },
-        postalCode: { type: String, default: '' },
-        country: { type: String, default: '' },
-        phone: { type: String, default: '' },
+    addressBook: [{
+        label: { type: String, default: 'Home' },
+        address: { type: String, required: true },
+        city: { type: String, required: true },
+        postalCode: { type: String, required: true },
+        country: { type: String, required: true },
+        phone: { type: String, required: true },
         alternatePhone: { type: String, default: '' },
+        isDefault: { type: Boolean, default: false }
+    }],
+    preferences: {
+        size: { type: String, default: '' },
+        category: { type: String, default: '' }
     },
     avatar: {
         type: String,
         default: '',
+    },
+    loyaltyPoints: {
+        type: Number,
+        default: 0,
     },
 }, {
     timestamps: true,

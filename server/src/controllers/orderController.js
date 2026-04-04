@@ -1,6 +1,7 @@
 import Order from '../models/Order.js';
 import Product from '../models/Product.js';
 import Coupon from '../models/Coupon.js';
+import User from '../models/User.js';
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
 
@@ -18,6 +19,7 @@ export const addOrderItems = async (req, res) => {
         totalPrice,
         couponCode,
         discountAmount,
+        pointsSpent,
     } = req.body;
 
     if (!orderItems || orderItems.length === 0) {
@@ -33,7 +35,19 @@ export const addOrderItems = async (req, res) => {
         totalAmount: totalPrice,
         couponCode: couponCode || '',
         discountAmount: discountAmount || 0,
+        pointsSpent: pointsSpent || 0,
+        pointsValue: (pointsSpent || 0) * 0.02, // 100 coins = 2rs
+        pointsEarned: Math.floor(totalPrice * 0.02), // 2 coins per 100 rs (2% back)
     });
+
+    if (pointsSpent > 0) {
+        const user = await User.findById(req.user._id);
+        if (user.loyaltyPoints < pointsSpent) {
+            return res.status(400).json({ message: 'Insufficient loyalty points' });
+        }
+        user.loyaltyPoints -= pointsSpent;
+        await user.save();
+    }
 
     const createdOrder = await order.save();
 
@@ -91,6 +105,14 @@ export const updateOrderToPaid = async (req, res) => {
 
     order.paymentStatus = 'Paid';
     order.paidAt = new Date();
+    
+    // Reward loyalty points to user
+    const user = await User.findById(order.userId);
+    if (user) {
+        user.loyaltyPoints += order.pointsEarned;
+        await user.save();
+    }
+
     const updatedOrder = await order.save();
     res.json(updatedOrder);
 };
@@ -185,4 +207,39 @@ export const getOrderAnalytics = async (req, res) => {
     }
 
     res.json({ totalRevenue, totalOrders, pendingOrders, deliveredOrders, monthlyRevenue });
+};
+
+// @desc    Validate coupon
+// @route   POST /api/orders/validate-coupon
+// @access  Private
+export const validateCoupon = async (req, res) => {
+    try {
+        const { code, amount } = req.body;
+        if (!code) return res.status(400).json({ message: 'Coupon code is required' });
+        
+        const coupon = await Coupon.findOne({ code: code.toUpperCase(), isActive: true });
+        if (!coupon) return res.status(404).json({ message: 'Valid coupon not found' });
+        
+        if (coupon.expiresAt && coupon.expiresAt < new Date()) {
+            return res.status(400).json({ message: 'Coupon expired' });
+        }
+        
+        if (coupon.minOrderAmount > amount) {
+            return res.status(400).json({ message: `Min order for this coupon is ₹${coupon.minOrderAmount}` });
+        }
+        
+        if (coupon.usedCount >= coupon.maxUses) {
+            return res.status(400).json({ message: 'Coupon limit reached' });
+        }
+
+        let discount = 0;
+        if (coupon.discountType === 'percentage') {
+            discount = (amount * coupon.discountValue) / 100;
+        } else {
+            discount = coupon.discountValue;
+        }
+        res.json({ discount: Math.round(discount), message: 'Coupon applied successfully!' });
+    } catch (err) {
+        res.status(500).json({ message: 'Coupon validation failed' });
+    }
 };

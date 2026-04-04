@@ -7,9 +7,9 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import axios from 'axios';
 import { API_BASE_URL } from '@/lib/utils';
 import { useToast } from '../context/ToastContext';
-import { MapPin, CreditCard, Loader2, Phone } from 'lucide-react';
+import { MapPin, CreditCard, Loader2, Phone, Coins, CheckCircle2, ChevronRight, Truck, ShoppingBag, Globe, Check, Home, Briefcase, Plus } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
-// Load Razorpay script dynamically
 const loadRazorpay = () =>
   new Promise(resolve => {
     if (window.Razorpay) return resolve(true);
@@ -26,297 +26,371 @@ const Checkout = () => {
   const { cartItems, clearCart } = useCart();
   const { addToast } = useToast();
 
-  // Get coupon/pricing passed from cart
-  const cartState = location.state || {};
-  const appliedCoupon = cartState.coupon || null;
-  const discountAmount = cartState.discountAmount || 0;
-
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
   const [postalCode, setPostalCode] = useState('');
-  const [country, setCountry] = useState('');
+  const [country, setCountry] = useState('India');
   const [phone, setPhone] = useState('');
   const [alternatePhone, setAlternatePhone] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('Razorpay');
+  const [step, setStep] = useState(1);
   const [fetchingLocation, setFetchingLocation] = useState(false);
   const [placingOrder, setPlacingOrder] = useState(false);
 
-  // Pre-fill from profile
+  // Loyalty & Coupons
+  const [userPoints, setUserPoints] = useState(0);
+  const [usePoints, setUsePoints] = useState(false);
+  const [couponCode, setCouponCode] = useState('');
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+  
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [selectedAddressIndex, setSelectedAddressIndex] = useState(-1);
+
   useEffect(() => {
     const userInfo = JSON.parse(localStorage.getItem('userInfo'));
-    if (userInfo?.address) {
-      setAddress(userInfo.address.address || '');
-      setCity(userInfo.address.city || '');
-      setPostalCode(userInfo.address.postalCode || '');
-      setCountry(userInfo.address.country || '');
-      setPhone(userInfo.address.phone || userInfo.phone || '');
-      setAlternatePhone(userInfo.address.alternatePhone || '');
-    } else if (userInfo?.phone) {
-      setPhone(userInfo.phone);
+    if (userInfo) {
+      setUserPoints(userInfo.loyaltyPoints || 0);
+      const book = userInfo.addressBook || [];
+      setSavedAddresses(book);
+      const def = book.findIndex(a => a.isDefault);
+      if (def !== -1) {
+        setSelectedAddressIndex(def);
+        const addr = book[def];
+        setAddress(addr.address); setCity(addr.city); setPostalCode(addr.postalCode); 
+        setCountry(addr.country); setPhone(addr.phone); setAlternatePhone(addr.alternatePhone);
+      }
     }
   }, []);
 
-  const itemsPrice = cartItems.reduce((acc, item) => acc + item.qty * item.price, 0);
-  const shippingPrice = itemsPrice > 1500 ? 0 : 100;
-  const taxPrice = itemsPrice * 0.05;
-  const totalPrice = itemsPrice + shippingPrice + taxPrice - discountAmount;
+  const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.qty, 0);
+  const shippingPrice = subtotal > 1500 ? 0 : 150;
+  
+  // Loyalty redemption: 100 coins = 2rs (1 coin = 0.02rs)
+  // Max usage capped at 50% of itemsPrice
+  const maxPossibleDiscount = subtotal * 0.5;
+  const maxRedeemablePoints = Math.floor(maxPossibleDiscount / 0.02);
+  const pointsToUse = Math.min(userPoints, maxRedeemablePoints);
+  const pointsDiscount = usePoints ? (pointsToUse * 0.02) : 0;
+  
+  const finalTotal = subtotal + shippingPrice - pointsDiscount - discountAmount;
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode) return;
+    setValidatingCoupon(true);
+    try {
+      const userInfoLocal = JSON.parse(localStorage.getItem('userInfo'));
+      const { data } = await axios.post(`${API_BASE_URL}/api/orders/validate-coupon`, 
+        { code: couponCode, amount: subtotal },
+        { headers: { Authorization: `Bearer ${userInfoLocal.token}` } }
+      );
+      setDiscountAmount(data.discount);
+      addToast(data.message, 'success');
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Invalid coupon', 'error');
+      setDiscountAmount(0);
+    } finally {
+      setValidatingCoupon(false);
+    }
+  };
+
+  const handleSelectSavedAddress = (index) => {
+    setSelectedAddressIndex(index);
+    const addr = savedAddresses[index];
+    setAddress(addr.address); setCity(addr.city); setPostalCode(addr.postalCode);
+    setCountry(addr.country); setPhone(addr.phone); setAlternatePhone(addr.alternatePhone);
+  };
+
+  const placeOrderHandler = async () => {
+    if (!address || !city || !postalCode) { addToast('Please fill all address fields', 'error'); return; }
+    setPlacingOrder(true);
+    try {
+      const isLoaded = await loadRazorpay();
+      if (!isLoaded) { addToast('Razorpay failed to load', 'error'); return; }
+
+      const userInfoLocal = JSON.parse(localStorage.getItem('userInfo'));
+      const config = { headers: { Authorization: `Bearer ${userInfoLocal.token}` } };
+
+      const { data: rzOrder } = await axios.post(`${API_BASE_URL}/api/orders/razorpay`, { amount: finalTotal }, config);
+
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+        amount: rzOrder.amount,
+        currency: rzOrder.currency,
+        name: 'Cloth Couture',
+        description: 'Premium Handmade Clothing',
+        order_id: rzOrder.id,
+        handler: async (response) => {
+          try {
+            const orderData = {
+              orderItems: cartItems.map(item => ({ ...item, product: item.product })),
+              shippingAddress: { address, city, postalCode, country, phone, alternatePhone },
+              paymentMethod: 'Razorpay',
+              itemsPrice: subtotal, shippingPrice, taxPrice: 0, totalPrice: finalTotal,
+              pointsSpent: usePoints ? pointsToUse : 0,
+              couponCode, discountAmount,
+            };
+            const { data } = await axios.post(`${API_BASE_URL}/api/orders`, orderData, config);
+            await axios.put(`${API_BASE_URL}/api/orders/${data._id}/pay`, {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            }, config);
+
+            // Update user balance locally
+            const updatedUser = { ...userInfoLocal, loyaltyPoints: userInfoLocal.loyaltyPoints - (usePoints ? pointsToUse : 0) + Math.floor(finalTotal * 0.02) };
+            localStorage.setItem('userInfo', JSON.stringify(updatedUser));
+
+            clearCart();
+            addToast('Order placed successfully!', 'success');
+            navigate('/profile');
+          } catch (err) {
+            addToast('Payment processing failed', 'error');
+          }
+        },
+        prefill: { name: userInfoLocal.name, email: userInfoLocal.email, contact: phone },
+        theme: { color: '#E17009' }
+      };
+
+      const rzp1 = new window.Razorpay(options);
+      rzp1.open();
+    } catch (err) {
+      addToast('Order creation failed', 'error');
+    } finally {
+      setPlacingOrder(false);
+    }
+  };
 
   const fetchCurrentLocation = () => {
     if (!navigator.geolocation) { addToast('Geolocation not supported', 'error'); return; }
     setFetchingLocation(true);
     navigator.geolocation.getCurrentPosition(
-      async ({ coords }) => {
+      async (pos) => {
         try {
-          // Use native fetch (not axios) to avoid global withCredentials:true CORS conflict
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.latitude}&lon=${coords.longitude}`,
-            { headers: { 'Accept-Language': 'en' } }
-          );
-          if (!res.ok) throw new Error('Reverse geocoding failed');
-          const data = await res.json();
-          if (data?.address) {
-            const a = data.address;
-            setAddress(
-              [a.house_number, a.road, a.suburb, a.neighbourhood]
-                .filter(Boolean).join(', ')
-              || data.display_name || ''
-            );
-            setCity(a.city || a.town || a.village || a.county || '');
-            setPostalCode(a.postcode || '');
-            setCountry(a.country || '');
-          }
-          addToast('Location fetched successfully!', 'success');
-        } catch { addToast('Could not fetch address. Please enter manually.', 'error'); }
+          const { latitude, longitude } = pos.coords;
+          const res = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+          const addr = res.data.address;
+          setAddress(`${addr.road || ''}, ${addr.suburb || addr.neighbourhood || ''}`);
+          setCity(addr.city || addr.town || addr.village || '');
+          setPostalCode(addr.postcode || '');
+          addToast('Location detected!', 'success');
+        } catch { addToast('Reverse geocoding failed', 'warning'); }
         finally { setFetchingLocation(false); }
       },
-      (err) => {
-        setFetchingLocation(false);
-        if (err.code === 1) addToast('Location permission denied. Please allow location access.', 'error');
-        else addToast('Could not get your location. Please enter manually.', 'error');
-      },
-      { timeout: 10000, maximumAge: 0 }
+      () => { addToast('Location access denied', 'error'); setFetchingLocation(false); }
     );
   };
 
-  const placeOrderHandler = async (e) => {
-    e.preventDefault();
-    if (!address || !city || !postalCode || !country) { addToast('Please fill all address fields', 'error'); return; }
-    if (!phone) { addToast('Please enter a phone number for delivery', 'error'); return; }
-    const phoneRegex = /^[6-9]\d{9}$/;
-    if (!phoneRegex.test(phone)) { addToast('Enter a valid 10-digit Indian mobile number', 'error'); return; }
-    if (alternatePhone && !phoneRegex.test(alternatePhone)) { addToast('Enter a valid alternate phone number', 'error'); return; }
-    const userInfo = JSON.parse(localStorage.getItem('userInfo'));
-    if (!userInfo) { navigate('/login'); return; }
-    const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
-    setPlacingOrder(true);
-
-    try {
-      // First, create the order record
-      const { data: order } = await axios.post(`${API_BASE_URL}/api/orders`, {
-        orderItems: cartItems,
-        shippingAddress: { address, city, postalCode, country, phone, alternatePhone },
-        paymentMethod,
-        itemsPrice,
-        shippingPrice,
-        taxPrice,
-        totalPrice,
-        couponCode: appliedCoupon?.code || '',
-        discountAmount,
-      }, config);
-
-      if (paymentMethod === 'Razorpay') {
-        const loaded = await loadRazorpay();
-        if (!loaded) { addToast('Razorpay failed to load. Try again.', 'error'); setPlacingOrder(false); return; }
-
-        // Create razorpay order
-        const { data: rzpOrder } = await axios.post(`${API_BASE_URL}/api/orders/razorpay`,
-          { amount: totalPrice }, config);
-
-        const options = {
-          key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-          amount: rzpOrder.amount,
-          currency: rzpOrder.currency,
-          name: 'Cloth Couture',
-          description: 'Handmade Clothing Purchase',
-          order_id: rzpOrder.id,
-          handler: async (response) => {
-            try {
-              await axios.put(`${API_BASE_URL}/api/orders/${order._id}/pay`, {
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-              }, config);
-              clearCart();
-              navigate('/order-success', { state: { order: { ...order, paymentStatus: 'Paid' } } });
-            } catch { addToast('Payment verification failed', 'error'); }
-          },
-          prefill: { name: userInfo.name, email: userInfo.email },
-          theme: { color: '#c8956c' },
-          modal: { ondismiss: () => { setPlacingOrder(false); } },
-        };
-
-        const rzp = new window.Razorpay(options);
-        rzp.open();
-        return; // Don't clearCart here — wait for handler
-      }
-
-      // COD
-      clearCart();
-      navigate('/order-success', { state: { order } });
-    } catch (err) {
-      addToast(err.response?.data?.message || 'Order failed. Please try again.', 'error');
-      setPlacingOrder(false);
-    }
-  };
-
-  if (cartItems.length === 0) {
-    navigate('/cart');
-    return null;
-  }
-
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <h1 className="text-3xl font-serif font-bold text-foreground mb-8 text-center">Checkout</h1>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-muted/20 min-h-screen">
+      <div className="flex flex-col lg:flex-row gap-12">
+        <div className="flex-1 space-y-8">
+          
+          {/* Progress Header */}
+          <div className="flex items-center gap-4 mb-8">
+            {[1, 2, 3].map(s => (
+              <React.Fragment key={s}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${step >= s ? 'bg-primary text-white scale-110 shadow-lg' : 'bg-muted text-muted-foreground'}`}>{s}</div>
+                {s < 3 && <div className={`flex-1 h-1 transition-all ${step > s ? 'bg-primary' : 'bg-muted'}`} />}
+              </React.Fragment>
+            ))}
+          </div>
 
-      <div className="flex flex-col lg:flex-row gap-10">
-        <div className="lg:w-2/3">
-          <form id="checkout-form" onSubmit={placeOrderHandler}>
-            {/* Shipping */}
-            <Card className="mb-6 rounded-2xl">
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <CardTitle className="text-lg font-serif flex items-center gap-2">
-                    <MapPin className="h-5 w-5 text-primary" /> Shipping Address
-                  </CardTitle>
-                  <Button type="button" variant="outline" size="sm" disabled={fetchingLocation}
-                    onClick={fetchCurrentLocation} className="rounded-lg text-xs">
-                    {fetchingLocation ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-                    {fetchingLocation ? 'Fetching...' : '📍 Use Location'}
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Input placeholder="Street address..." value={address} onChange={e => setAddress(e.target.value)} required className="rounded-xl" />
-                <div className="grid grid-cols-2 gap-4">
-                  <Input placeholder="City" value={city} onChange={e => setCity(e.target.value)} required className="rounded-xl" />
-                  <Input placeholder="PIN Code" value={postalCode} onChange={e => setPostalCode(e.target.value)} required className="rounded-xl" />
-                </div>
-                <Input placeholder="Country" value={country} onChange={e => setCountry(e.target.value)} required className="rounded-xl" />
-                {/* Phone Numbers */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                    <Input
-                      type="tel"
-                      placeholder="Phone number (required)"
-                      value={phone}
-                      onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      required
-                      maxLength={10}
-                      className="rounded-xl pl-9"
-                    />
-                    {phone.length === 10 && (
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 text-xs">✓</span>
+          <AnimatePresence mode="wait">
+            {step === 1 && (
+              <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} key="step1">
+                <Card className="rounded-3xl border-none shadow-premium overflow-hidden">
+                  <CardHeader className="bg-primary/5 pb-8 border-b border-primary/10">
+                    <div className="flex justify-between items-center">
+                      <CardTitle className="text-2xl font-serif">Shipping Destination</CardTitle>
+                      <Button variant="ghost" size="sm" onClick={fetchCurrentLocation} disabled={fetchingLocation} className="text-primary hover:bg-primary/10 rounded-full h-10 px-6 gap-2">
+                         {fetchingLocation ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />} Auto Detect
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-8 space-y-8">
+                    {savedAddresses.length > 0 && (
+                      <div className="space-y-4">
+                        <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Select from Address Book</label>
+                        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                          {savedAddresses.map((addr, i) => (
+                            <button key={i} onClick={() => handleSelectSavedAddress(i)} className={`relative flex-shrink-0 w-56 p-6 rounded-2xl border-2 text-left transition-all ${selectedAddressIndex === i ? 'border-primary bg-primary/5 scale-[1.02]' : 'border-border/50 hover:border-primary/20 bg-background'}`}>
+                              <div className="flex items-center gap-2 mb-3">
+                                 {addr.label === 'Home' ? <Home className="h-4 w-4 text-primary" /> : <Briefcase className="h-4 w-4 text-primary" />}
+                                 <span className="text-xs font-black uppercase tracking-widest">{addr.label}</span>
+                                 {selectedAddressIndex === i && <CheckCircle2 className="h-4 w-4 text-primary ml-auto" />}
+                              </div>
+                              <p className="text-[10px] text-foreground/80 line-clamp-1">{addr.address}</p>
+                              <p className="text-[10px] text-muted-foreground">{addr.city}, {addr.postalCode}</p>
+                            </button>
+                          ))}
+                          <button onClick={() => navigate('/profile')} className="flex-shrink-0 w-40 h-[104px] border-2 border-dashed border-border rounded-2xl flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-primary transition-all">
+                             <Plus className="h-5 w-5" /> <span className="text-[10px] font-bold uppercase tracking-widest">Manage Book</span>
+                          </button>
+                        </div>
+                      </div>
                     )}
-                  </div>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                    <Input
-                      type="tel"
-                      placeholder="Alternate phone (optional)"
-                      value={alternatePhone}
-                      onChange={e => setAlternatePhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      maxLength={10}
-                      className="rounded-xl pl-9"
-                    />
-                    {alternatePhone.length === 10 && (
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 text-xs">✓</span>
-                    )}
-                  </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="md:col-span-2 space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Full Street Address</label>
+                        <Input value={address} onChange={e => { setAddress(e.target.value); setSelectedAddressIndex(-1); }} className="rounded-xl h-14 bg-muted/20 border-none px-6 focus:ring-2 focus:ring-primary" placeholder="Apt, Suite, Street name" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">City</label>
+                        <Input value={city} onChange={e => setCity(e.target.value)} className="rounded-xl h-14 bg-muted/20 border-none px-6" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Postal Code</label>
+                        <Input value={postalCode} onChange={e => setPostalCode(e.target.value)} className="rounded-xl h-14 bg-muted/20 border-none px-6" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Primary Contact</label>
+                        <Input value={phone} onChange={e => setPhone(e.target.value)} className="rounded-xl h-14 bg-muted/20 border-none px-6" placeholder="10-digit mobile" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Alternate Contact</label>
+                        <Input value={alternatePhone} onChange={e => setAlternatePhone(e.target.value)} className="rounded-xl h-14 bg-muted/20 border-none px-6" placeholder="Optional" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <div className="mt-8 flex justify-end">
+                   <Button onClick={() => setStep(2)} className="rounded-2xl px-12 py-7 text-lg bg-primary hover:bg-primary-dark shadow-xl">Continue to Payment <ChevronRight className="ml-2 h-5 w-5" /></Button>
                 </div>
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Phone className="h-3 w-3" /> Our delivery partner will contact you on this number.
-                </p>
-              </CardContent>
-            </Card>
+              </motion.div>
+            )}
 
-            {/* Payment */}
-            <Card className="rounded-2xl">
-              <CardHeader>
-                <CardTitle className="text-lg font-serif flex items-center gap-2">
-                  <CreditCard className="h-5 w-5 text-primary" /> Payment Method
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <label className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'Razorpay' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
-                    <input type="radio" name="payment" value="Razorpay" checked={paymentMethod === 'Razorpay'} onChange={e => setPaymentMethod(e.target.value)} className="accent-primary" />
-                    <div>
-                      <p className="font-semibold text-foreground">Online Payment</p>
-                      <p className="text-xs text-muted-foreground">UPI, Cards, Net Banking via Razorpay</p>
+            {step === 2 && (
+              <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} key="step2">
+                 <Card className="rounded-3xl border-none shadow-premium p-8">
+                    <h2 className="text-2xl font-serif font-bold mb-8 flex items-center gap-3">
+                       <CreditCard className="h-6 w-6 text-primary" /> Payment Method
+                    </h2>
+                    
+                    {/* Coupon Input */}
+                    <div className="bg-primary/5 p-8 rounded-3xl border border-primary/20 mb-8">
+                       <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary mb-4">Exclusive Coupon Code</p>
+                       <div className="flex gap-4">
+                          <Input value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())} placeholder="COUTRE20" className="rounded-xl h-14 flex-1 bg-white border-none shadow-sm px-6" />
+                          <Button onClick={handleApplyCoupon} disabled={validatingCoupon || !couponCode} className="h-14 rounded-xl px-10 bg-primary-dark text-white hover:bg-black transition-all">
+                             {validatingCoupon ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
+                          </Button>
+                       </div>
+                       {discountAmount > 0 && (
+                         <motion.p initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="text-sm text-green-600 font-bold mt-4 flex items-center gap-2"><CheckCircle2 className="h-4 w-4" /> Coupon applied: -₹{discountAmount.toFixed(2)}</motion.p>
+                       )}
                     </div>
-                    <span className="ml-auto text-primary font-bold text-sm">Recommended</span>
-                  </label>
-                  <label className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'COD' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
-                    <input type="radio" name="payment" value="COD" checked={paymentMethod === 'COD'} onChange={e => setPaymentMethod(e.target.value)} className="accent-primary" />
-                    <div>
-                      <p className="font-semibold text-foreground">Cash on Delivery</p>
-                      <p className="text-xs text-muted-foreground">Pay when your order arrives</p>
+
+                    <div className="flex items-center justify-between p-6 bg-card rounded-2xl border-2 border-primary/10 shadow-sm hover:border-primary/40 transition-all group">
+                       <div className="flex items-center gap-4">
+                          <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><Coins className="h-7 w-7 text-primary" /></div>
+                          <div>
+                             <p className="font-bold text-lg">{userPoints} Couture Coins</p>
+                             <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground mt-0.5">Value: ₹{(userPoints * 0.02).toFixed(2)}</p>
+                          </div>
+                       </div>
+                       <Button variant={usePoints ? "default" : "outline"} onClick={() => setUsePoints(!usePoints)} disabled={userPoints < 50} className={`rounded-xl px-8 h-12 ${usePoints ? 'bg-primary' : 'border-primary text-primary hover:bg-primary/5'}`}>
+                          {usePoints ? 'Redeemed' : 'Redeem'}
+                       </Button>
                     </div>
-                  </label>
-                </div>
-              </CardContent>
-            </Card>
-          </form>
+
+                    <div className="mt-12 flex items-center gap-4 p-8 bg-muted/40 rounded-3xl border border-border">
+                       <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm"><Check className="h-6 w-6 text-green-600" /></div>
+                       <p className="text-sm font-medium">Safe & Secure Payment via <span className="font-bold">Razorpay</span> (UPI, Cards, Netbanking)</p>
+                    </div>
+                    
+                    <div className="mt-12 flex justify-between gap-4">
+                       <Button variant="ghost" onClick={() => setStep(1)} className="rounded-2xl h-14 px-8 border-border">Previous Step</Button>
+                       <Button onClick={() => setStep(3)} className="rounded-2xl h-14 px-12 bg-primary text-white shadow-xl">Final Review <ChevronRight className="ml-2 h-5 w-5" /></Button>
+                    </div>
+                 </Card>
+              </motion.div>
+            )}
+
+            {step === 3 && (
+              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} key="step3">
+                 <Card className="rounded-3xl border-none shadow-premium p-8 overflow-hidden relative">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-[100%] transition-transform hover:scale-110" />
+                    <h2 className="text-2xl font-serif font-bold mb-8">Confirm Your Order</h2>
+                    <div className="space-y-6">
+                       <div className="flex items-start gap-4 p-5 bg-muted/30 rounded-2xl">
+                          <Truck className="h-5 w-5 text-primary mt-1" />
+                          <div>
+                             <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Delivering To</p>
+                             <p className="text-sm font-medium">{address}, {city}, {postalCode}</p>
+                             <p className="text-[10px] text-muted-foreground mt-1 tracking-wider underline">{phone}</p>
+                          </div>
+                       </div>
+                       
+                       <div className="space-y-4 pt-4 border-t border-border">
+                          {cartItems.map(item => (
+                            <div key={`${item.product}-${item.size}`} className="flex items-center gap-4">
+                               <img src={item.image} alt={item.name} className="w-16 h-16 rounded-xl object-cover shadow-sm" />
+                               <div className="flex-1">
+                                  <p className="text-sm font-bold">{item.name}</p>
+                                  <p className="text-[10px] text-muted-foreground uppercase font-black">{item.size} · {item.qty} Unit{item.qty > 1 ? 's' : ''}</p>
+                               </div>
+                               <p className="font-bold text-sm">₹{(item.price * item.qty).toFixed(2)}</p>
+                            </div>
+                          ))}
+                       </div>
+                    </div>
+
+                    <div className="mt-10 flex justify-between gap-4 pt-6 border-t border-border">
+                       <Button variant="ghost" onClick={() => setStep(2)} className="rounded-2xl h-14">Modify Details</Button>
+                       <Button onClick={placeOrderHandler} disabled={placingOrder} className="rounded-2xl h-14 flex-1 bg-black text-white shadow-xl hover:bg-primary-dark transition-all">
+                          {placingOrder ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <ShoppingBag className="h-5 w-5 mr-2" />} 
+                          Pay ₹{finalTotal.toFixed(2)} Securely
+                       </Button>
+                    </div>
+                 </Card>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
-        {/* Summary */}
-        <div className="lg:w-1/3">
-          <Card className="rounded-2xl sticky top-20">
-            <CardHeader>
-              <CardTitle className="text-lg font-serif">Order Summary</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 mb-4">
-                {cartItems.map((item, i) => (
-                  <div key={i} className="flex justify-between items-center text-sm">
-                    <span className="truncate w-2/3 text-muted-foreground">{item.qty} × {item.name}</span>
-                    <span className="font-medium">₹{(item.qty * item.price).toFixed(2)}</span>
+        {/* Sidebar Summary */}
+        <div className="lg:w-[400px]">
+          <div className="sticky top-28 space-y-6">
+            <Card className="rounded-[2.5rem] border-none shadow-premium-dark bg-primary-dark text-white overflow-hidden p-8">
+               <h3 className="text-lg font-serif font-bold mb-8 border-b border-white/10 pb-4">Order Summary</h3>
+               <div className="space-y-5 text-sm">
+                  <div className="flex justify-between items-center opacity-80">
+                     <span>Item Subtotal</span>
+                     <span>₹{subtotal.toFixed(2)}</span>
                   </div>
-                ))}
-              </div>
-              <div className="border-t border-border pt-4 space-y-2 text-sm">
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Subtotal</span><span>₹{itemsPrice.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Shipping</span><span>{shippingPrice === 0 ? 'Free' : `₹${shippingPrice.toFixed(2)}`}</span>
-                </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>GST (5%)</span><span>₹{taxPrice.toFixed(2)}</span>
-                </div>
-                {appliedCoupon && (
-                  <div className="flex justify-between text-green-600 font-medium">
-                    <span>Coupon ({appliedCoupon.code})</span>
-                    <span>−₹{discountAmount.toFixed(2)}</span>
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between items-center text-green-300 font-bold">
+                       <span className="flex items-center gap-1.5"><Globe className="h-3 w-3" /> Coupon Offset</span>
+                       <span>−₹{discountAmount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {usePoints && (
+                    <div className="flex justify-between items-center text-amber-300 font-bold">
+                       <span className="flex items-center gap-1.5"><Coins className="h-3 w-3" /> Coins Redemption</span>
+                       <span>−₹{pointsDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center opacity-80">
+                     <span>Shipping (Pan India)</span>
+                     <span>{shippingPrice === 0 ? 'FREE' : `₹${shippingPrice.toFixed(2)}`}</span>
                   </div>
-                )}
-                <div className="flex justify-between font-bold text-foreground text-base pt-2 border-t border-border">
-                  <span>Total</span>
-                  <span className="text-primary-dark text-lg">₹{totalPrice.toFixed(2)}</span>
-                </div>
-              </div>
-              <Button
-                type="submit" form="checkout-form"
-                disabled={placingOrder}
-                className="w-full bg-primary hover:bg-primary-dark text-white rounded-xl py-6 text-base mt-5"
-              >
-                {placingOrder
-                  ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Processing...</span>
-                  : paymentMethod === 'Razorpay' ? 'Pay Now' : 'Place Order'}
-              </Button>
-            </CardContent>
-          </Card>
+                  <div className="pt-6 border-t border-white/20 mt-4 flex justify-between items-baseline">
+                     <span className="text-base font-serif opacity-70">Payable Total</span>
+                     <span className="text-4xl font-serif font-black tracking-tight">₹{finalTotal.toFixed(2)}</span>
+                  </div>
+               </div>
+            </Card>
+
+            <div className="bg-white p-8 rounded-[2rem] shadow-premium border border-border/50 text-center relative group">
+               <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                  <TrendingUp className="h-6 w-6 text-primary" />
+               </div>
+               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-1">Loyalty Perk</p>
+               <h4 className="text-xl font-serif font-bold text-foreground">Earn {Math.floor(finalTotal * 0.02)} Coins</h4>
+               <p className="text-[10px] text-muted-foreground mt-2 font-medium">Earn 2 coins for every ₹100 spent.<br/> Redeem them at ₹0.02 per coin! 👑</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -2,7 +2,7 @@ import express from 'express';
 import {
     addOrderItems, getOrderById, updateOrderToPaid, getOrders,
     updateOrderToDelivered, getMyOrders, updateOrderStatus,
-    getOrderAnalytics, createRazorpayOrder
+    getOrderAnalytics, createRazorpayOrder, validateCoupon
 } from '../controllers/orderController.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
 
@@ -12,6 +12,7 @@ router.route('/').post(protect, addOrderItems).get(protect, admin, getOrders);
 router.route('/myorders').get(protect, getMyOrders);
 router.route('/analytics').get(protect, admin, getOrderAnalytics);
 router.route('/razorpay').post(protect, createRazorpayOrder);
+router.route('/validate-coupon').post(protect, validateCoupon);
 router.route('/:id').get(protect, getOrderById);
 router.route('/:id/pay').put(protect, updateOrderToPaid);
 router.route('/:id/deliver').put(protect, admin, updateOrderToDelivered);

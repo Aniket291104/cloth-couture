@@ -51,6 +51,8 @@ const orderSchema = new mongoose.Schema({
     },
     couponCode: { type: String, default: '' },
     discountAmount: { type: Number, default: 0 },
+    pointsEarned: { type: Number, default: 0 },
+    pointsSpent: { type: Number, default: 0 },
     razorpayOrderId: { type: String, default: '' },
     razorpayPaymentId: { type: String, default: '' },
     paidAt: { type: Date },

@@ -15,8 +15,10 @@ export const loginUser = async (req, res) => {
             email: user.email,
             role: user.role,
             phone: user.phone,
-            address: user.address,
+            addressBook: user.addressBook,
+            preferences: user.preferences,
             avatar: user.avatar,
+            loyaltyPoints: user.loyaltyPoints,
             token,
         });
     } else {
@@ -43,8 +45,10 @@ export const registerUser = async (req, res) => {
             email: user.email,
             role: user.role,
             phone: user.phone || '',
-            address: user.address || {},
+            addressBook: user.addressBook || [],
+            preferences: user.preferences || {},
             avatar: user.avatar || '',
+            loyaltyPoints: user.loyaltyPoints || 0,
             token,
         });
     } else {
@@ -83,8 +87,11 @@ export const updateUserProfile = async (req, res) => {
     user.email = req.body.email || user.email;
     user.phone = req.body.phone !== undefined ? req.body.phone : user.phone;
     user.avatar = req.body.avatar !== undefined ? req.body.avatar : user.avatar;
-    if (req.body.address) {
-        user.address = { ...user.address.toObject?.() || user.address, ...req.body.address };
+    if (req.body.addressBook) {
+        user.addressBook = req.body.addressBook;
+    }
+    if (req.body.preferences) {
+        user.preferences = { ...user.preferences, ...req.body.preferences };
     }
     if (req.body.password) {
         user.password = req.body.password;
@@ -98,8 +105,10 @@ export const updateUserProfile = async (req, res) => {
         email: updatedUser.email,
         role: updatedUser.role,
         phone: updatedUser.phone,
-        address: updatedUser.address,
+        addressBook: updatedUser.addressBook,
+        preferences: updatedUser.preferences,
         avatar: updatedUser.avatar,
+        loyaltyPoints: updatedUser.loyaltyPoints,
         token,
     });
 };

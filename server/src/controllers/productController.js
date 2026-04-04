@@ -172,3 +172,48 @@ export const getProductSuggestions = async (req, res) => {
     const products = await Product.find({ ...keyword }).select('name images price').limit(5);
     res.json(products);
 };
+
+// @desc    Get all categories
+// @route   GET /api/products/categories
+// @access  Public
+export const getCategories = async (req, res) => {
+    try {
+        // Define standard categories that should always be visible
+        const standardCategories = ['Dresses', 'Shirts', 'Bottoms', 'Outerwear', 'Accessories', 'New Arrivals'];
+        
+        // Get actual categories from products
+        const dbCategories = await Product.distinct('category');
+        
+        // Combine and ensure uniqueness (case-insensitive for comparison)
+        const allCategoryNames = Array.from(new Set([
+            ...standardCategories,
+            ...dbCategories.map(c => c.charAt(0).toUpperCase() + c.slice(1).toLowerCase())
+        ]));
+
+        // Get one representative product for each category that has them
+        const categoryData = await Promise.all(allCategoryNames.map(async (catName) => {
+            const product = await Product.findOne({ 
+                category: { $regex: new RegExp(`^${catName}$`, 'i') } 
+            }).select('images');
+            
+            // Default placeholder images for categories without products
+            const placeholders = {
+                'Dresses': '/images/dress.png',
+                'Shirts': '/images/shirt.png',
+                'Bottoms': '/images/placeholder.png',
+                'Outerwear': '/images/placeholder.png',
+                'Accessories': '/images/placeholder.png',
+                'New Arrivals': '/images/hero_banner.png'
+            };
+
+            return {
+                name: catName,
+                image: (product && product.images?.length > 0) ? product.images[0] : (placeholders[catName] || '/images/placeholder.png')
+            };
+        }));
+        
+        res.json(categoryData);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching categories' });
+    }
+};

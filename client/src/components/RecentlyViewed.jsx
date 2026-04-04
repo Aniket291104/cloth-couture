@@ -1,47 +1,90 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Clock, Eye, ShoppingCart, ChevronRight, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const RecentlyViewed = () => {
   const [products, setProducts] = useState([]);
 
   useEffect(() => {
     const viewed = JSON.parse(localStorage.getItem('recentlyViewed') || '[]');
-    setProducts(viewed.slice(0, 4));
+    setProducts(viewed.slice(0, 5));
   }, []);
 
   if (products.length === 0) return null;
 
   return (
-    <section className="py-12 px-4 max-w-7xl mx-auto">
-      <div className="flex items-center gap-2 mb-6">
-        <Clock className="h-5 w-5 text-primary" />
-        <h2 className="text-2xl font-serif font-bold text-foreground">Recently Viewed</h2>
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-        {products.map((product, i) => (
-          <motion.div
-            key={product._id}
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.06 }}
-          >
-            <Link to={`/products/${product._id}`} className="group block">
-              <div className="aspect-[4/5] bg-muted rounded-xl overflow-hidden mb-2">
-                <img
-                  src={product.images?.[0] || product.image || '/images/placeholder.png'}
-                  alt={product.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-              </div>
-              <h3 className="text-sm font-serif font-medium text-foreground group-hover:text-primary transition-colors truncate">
-                {product.name}
-              </h3>
-              <p className="text-sm font-semibold text-primary-dark mt-0.5">₹{product.price?.toFixed(2)}</p>
-            </Link>
-          </motion.div>
-        ))}
+    <section className="py-24 px-4 bg-muted/30 w-full overflow-hidden">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-primary font-bold uppercase tracking-[0.2em] text-[10px]">
+              <Sparkles className="h-3 w-3" /> Still interested in these?
+            </div>
+            <h2 className="text-3xl md:text-4xl font-serif font-bold text-foreground">Pick up where you left off</h2>
+          </div>
+          <Link to="/products" className="group text-sm font-bold uppercase tracking-widest text-primary flex items-center gap-1.5 transition-all hover:gap-3">
+             Explore More <ChevronRight className="h-4 w-4" />
+          </Link>
+        </div>
+
+        <div className="flex gap-6 overflow-x-auto pb-8 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
+          {products.map((product, i) => (
+            <motion.div
+              key={product._id}
+              initial={{ opacity: 0, scale: 0.9, x: 20 }}
+              whileInView={{ opacity: 1, scale: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.1, duration: 0.5 }}
+              className="flex-shrink-0 w-[240px] md:w-[280px]"
+            >
+              <Link to={`/products/${product._id}`} className="group relative block bg-background rounded-[2rem] overflow-hidden shadow-sm hover:shadow-xl transition-all h-full border border-border/50">
+                <div className="aspect-[3/4] overflow-hidden relative">
+                  <img
+                    src={product.images?.[0] || product.image || '/images/placeholder.png'}
+                    alt={product.name}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
+                     <div className="bg-white text-primary px-5 py-2.5 rounded-full font-bold text-xs uppercase tracking-widest flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform">
+                        <Eye className="h-4 w-4" /> View Item
+                     </div>
+                  </div>
+                  {product.stock <= 5 && product.stock > 0 && (
+                    <div className="absolute top-4 left-4 bg-red-500 text-white text-[8px] font-black uppercase px-2 py-1 rounded-full tracking-widest animate-pulse">
+                      Low Stock
+                    </div>
+                  )}
+                </div>
+                
+                <div className="p-6">
+                  <div className="flex justify-between items-start mb-1">
+                    <h3 className="text-sm font-serif font-bold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                      {product.name}
+                    </h3>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mb-3">{product.category}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg font-bold text-primary-dark">₹{product.price?.toFixed(2)}</span>
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all">
+                      <ShoppingCart className="h-4 w-4" />
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            </motion.div>
+          ))}
+          
+          {/* Last slide - Explore button */}
+          <div className="flex-shrink-0 w-[240px] md:w-[280px] h-full flex items-center justify-center">
+             <Link to="/products" className="flex flex-col items-center gap-4 group">
+                <div className="w-16 h-16 rounded-full bg-primary/5 group-hover:bg-primary transition-all flex items-center justify-center">
+                   <ChevronRight className="h-8 w-8 text-primary group-hover:text-white" />
+                </div>
+                <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">See Collections</span>
+             </Link>
+          </div>
+        </div>
       </div>
     </section>
   );

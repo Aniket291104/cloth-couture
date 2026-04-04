@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, User, Menu, X, Search, Heart, Package, ChevronDown, LogOut, Settings, Moon, Sun, Loader2 } from 'lucide-react';
+import { ShoppingCart, User, Menu, X, Search, Heart, Package, ChevronDown, LogOut, Settings, Moon, Sun, Loader2, Coins, Clock, History } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE_URL } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -13,6 +13,7 @@ const Navbar = () => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [keyword, setKeyword] = useState('');
   const [suggestions, setSuggestions] = useState([]);
+  const [searchHistory, setSearchHistory] = useState(JSON.parse(localStorage.getItem('searchHistory') || '[]'));
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
   const { cartItems } = useCart();
@@ -79,12 +80,22 @@ const Navbar = () => {
   const handleSearch = (e) => {
     e.preventDefault();
     if (keyword.trim()) {
+      // Save search history (avoid duplicates, keep last 5)
+      const updatedHistory = [keyword.trim(), ...searchHistory.filter(h => h !== keyword.trim())].slice(0, 5);
+      setSearchHistory(updatedHistory);
+      localStorage.setItem('searchHistory', JSON.stringify(updatedHistory));
+      
       navigate(`/products?keyword=${encodeURIComponent(keyword)}`);
     } else {
       navigate('/products');
     }
     setIsSearchOpen(false);
     setKeyword('');
+  };
+
+  const clearHistory = () => {
+    setSearchHistory([]);
+    localStorage.removeItem('searchHistory');
   };
 
   const navLinks = [
@@ -94,16 +105,22 @@ const Navbar = () => {
   ];
 
   return (
-    <header className="fixed top-0 left-0 right-0 bg-background/80 backdrop-blur-md z-50 border-b border-border shadow-sm">
+    <header className="fixed top-0 left-0 right-0 bg-background/90 backdrop-blur-md z-50 border-b border-border shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+        <div className="flex justify-between items-center h-20 md:h-24 px-2">
           {/* Left */}
           <div className="flex items-center gap-4">
             <button className="md:hidden" onClick={() => setIsOpen(!isOpen)}>
               {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
-            <Link to="/" className="text-2xl font-serif font-bold text-primary-dark tracking-tight">
-              Cloth Couture
+            <Link to="/" className="flex items-center">
+              <div className="relative group">
+                <img 
+                  src="/logo.png" 
+                  alt="Cloth Couture" 
+                  className="h-16 md:h-20 w-16 md:w-20 object-cover rounded-full border-2 border-primary/30 shadow-2xl transition-all duration-300 hover:scale-110 hover:border-primary cursor-pointer ring-4 ring-primary/5" 
+                />
+              </div>
             </Link>
           </div>
 
@@ -143,14 +160,34 @@ const Navbar = () => {
                     
                     {/* Suggestions Dropdown */}
                     <AnimatePresence>
-                      {(suggestions.length > 0 || loadingSuggestions) && isSearchOpen && (
+                      {(suggestions.length > 0 || (isSearchOpen && keyword.length === 0 && searchHistory.length > 0) || loadingSuggestions) && isSearchOpen && (
                         <motion.div
                           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
                           className="absolute top-full left-0 mt-2 w-64 bg-background border border-border rounded-xl shadow-2xl overflow-hidden z-[60]"
                         >
-                          {loadingSuggestions ? (
+                          {loadingSuggestions && (
                             <div className="p-4 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
-                          ) : (
+                          )}
+                          
+                          {!loadingSuggestions && keyword.length === 0 && searchHistory.length > 0 && (
+                            <div className="py-2">
+                              <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 border-b border-border mb-1 bg-muted/30">
+                                <History className="h-3 w-3" /> Recent Searches
+                              </div>
+                              {searchHistory.map((h, i) => (
+                                <button 
+                                  key={i} 
+                                  onClick={() => { setKeyword(h); navigate(`/products?keyword=${encodeURIComponent(h)}`); setIsSearchOpen(false); }}
+                                  className="w-full text-left px-4 py-2 hover:bg-muted transition-colors flex items-center gap-3 text-sm"
+                                >
+                                  <Clock className="h-3 w-3 opacity-40" /> {h}
+                                </button>
+                              ))}
+                              <button onClick={clearHistory} className="w-full text-center py-2 text-[10px] font-bold text-muted-foreground hover:text-destructive border-t border-border uppercase">Clear History</button>
+                            </div>
+                          )}
+
+                          {!loadingSuggestions && suggestions.length > 0 && (
                             <div className="py-2">
                               {suggestions.map(s => (
                                 <Link
@@ -231,7 +268,11 @@ const Navbar = () => {
                     >
                       <div className="px-4 py-3 border-b border-border">
                         <p className="text-sm font-semibold text-foreground truncate">{userInfo.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{userInfo.email}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <Coins className="h-3 w-3 text-primary" />
+                          <span className="text-[10px] font-bold text-primary-dark">{userInfo.loyaltyPoints || 0} Couture Coins</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">{userInfo.email}</p>
                       </div>
                       <div className="py-1">
                         <Link to="/profile" onClick={() => setIsUserMenuOpen(false)}
@@ -287,11 +328,17 @@ const Navbar = () => {
                   <Link to="/my-orders" className="py-2.5 px-3 text-sm font-medium hover:text-primary hover:bg-muted rounded-lg transition-colors flex items-center gap-2">
                     <Package className="h-4 w-4" /> My Orders
                   </Link>
-                  <Link to="/profile" className="py-2.5 px-3 text-sm font-medium hover:text-primary hover:bg-muted rounded-lg transition-colors flex items-center gap-2">
-                    <Settings className="h-4 w-4" /> My Profile
+                  <Link to="/profile" className="py-2.5 px-3 text-sm font-medium hover:text-primary hover:bg-muted rounded-lg transition-colors flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Settings className="h-4 w-4" /> My Profile
+                    </div>
+                    <div className="flex items-center gap-1 bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                      <Coins className="h-3 w-3 text-primary" />
+                      <span className="text-[10px] font-bold text-primary-dark">{userInfo.loyaltyPoints || 0}</span>
+                    </div>
                   </Link>
-                  <button onClick={handleLogout} className="py-2.5 px-3 text-sm font-medium text-destructive hover:bg-destructive/10 rounded-lg transition-colors text-left">
-                    Logout
+                  <button onClick={handleLogout} className="py-2.5 px-3 text-sm font-medium text-destructive hover:bg-destructive/10 rounded-lg transition-colors text-left flex items-center gap-2">
+                    <LogOut className="h-4 w-4" /> Logout
                   </button>
                 </>
               )}

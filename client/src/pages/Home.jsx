@@ -4,6 +4,8 @@ import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { API_BASE_URL } from '@/lib/utils';
+import axios from 'axios';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -23,6 +25,31 @@ const Home = () => {
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [newsletterStatus, setNewsletterStatus] = useState('idle'); // idle | loading | success | error
   const [newsletterMsg, setNewsletterMsg] = useState('');
+  const [categories, setCategories] = useState([]);
+  const [loadingCats, setLoadingCats] = useState(true);
+  const scrollRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const { data } = await axios.get(`${API_BASE_URL}/api/products/categories`);
+        setCategories(data);
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      } finally {
+        setLoadingCats(false);
+      }
+    };
+    fetchCategories();
+  }, []);
+
+  const scroll = (direction) => {
+    if (scrollRef.current) {
+      const { scrollLeft, clientWidth } = scrollRef.current;
+      const scrollTo = direction === 'left' ? scrollLeft - clientWidth / 2 : scrollLeft + clientWidth / 2;
+      scrollRef.current.scrollTo({ left: scrollTo, behavior: 'smooth' });
+    }
+  };
 
   const handleNewsletterSubmit = async (e) => {
     e.preventDefault();
@@ -56,10 +83,11 @@ const Home = () => {
         <div className="absolute inset-0 z-0">
           <img
             src="/images/hero_banner.png"
-            alt="Handmade Clothing Hero"
+            alt="Cloth Couture Artisan Fashion Showcase"
             className="w-full h-full object-cover"
+            loading="eager"
           />
-          <div className="absolute inset-0 bg-black/40"></div>
+          <div className="absolute inset-0 bg-black/40" aria-hidden="true"></div>
         </div>
 
         <div className="relative z-10 text-center text-white px-4 max-w-4xl mx-auto">
@@ -92,53 +120,73 @@ const Home = () => {
       </section>
 
       {/* Featured Collections Section */}
-      <section className="py-24 px-4 max-w-7xl mx-auto">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-serif font-bold text-foreground mb-4">Featured Collections</h2>
-          <div className="w-24 h-1 bg-primary mx-auto"></div>
+      <section className="py-12 md:py-16 px-4 max-w-7xl mx-auto">
+        <div className="text-center mb-10">
+          <h2 className="text-2xl md:text-3xl font-serif font-bold text-foreground mb-4 tracking-tight uppercase">Our Premium Collections</h2>
+          <p className="text-sm md:text-base text-muted-foreground max-w-xl mx-auto mb-6 font-light leading-relaxed">
+            Discover our meticulously crafted boutique collections, curated for timeless elegance and lasting quality. 
+          </p>
+          <div className="w-16 h-0.5 bg-primary/60 mx-auto"></div>
         </div>
 
-        <motion.div
-          className="grid grid-cols-1 md:grid-cols-2 gap-12"
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
-        >
-          {/* Collection 1 */}
-          <motion.div variants={itemVariants} onClick={() => navigate('/products?category=dresses')} className="group relative overflow-hidden rounded-lg aspect-[3/4] cursor-pointer">
-            <img
-              src="/images/dress.png"
-              alt="Women's Collection"
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
-            <div className="absolute bottom-0 left-0 p-8 w-full">
-              <h3 className="text-3xl font-serif text-white mb-3">Linen Dresses</h3>
-              <p className="text-gray-300 font-light mb-4">Breezy, natural fabric for effortless everyday wear.</p>
-              <Button variant="outline" className="text-black border-white bg-white hover:bg-primary hover:text-white hover:border-primary">
-                <Link to="/products?category=dresses">Explore</Link>
-              </Button>
-            </div>
-          </motion.div>
+        <div className="relative group">
+          {categories.length > 2 && (
+            <>
+              <button 
+                onClick={() => scroll('left')}
+                className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-background/80 backdrop-blur-sm p-1.5 rounded-full shadow-lg border border-border opacity-0 group-hover:opacity-100 transition-opacity -ml-3 hidden md:block"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button 
+                onClick={() => scroll('right')}
+                className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-background/80 backdrop-blur-sm p-1.5 rounded-full shadow-lg border border-border opacity-0 group-hover:opacity-100 transition-opacity -mr-3 hidden md:block"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </>
+          )}
 
-          {/* Collection 2 */}
-          <motion.div variants={itemVariants} onClick={() => navigate('/products?category=shirts')} className="group relative overflow-hidden rounded-lg aspect-[3/4] cursor-pointer">
-            <img
-              src="/images/shirt.png"
-              alt="Men's Collection"
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
-            <div className="absolute bottom-0 left-0 p-8 w-full">
-              <h3 className="text-3xl font-serif text-white mb-3">Cotton Shirts</h3>
-              <p className="text-gray-300 font-light mb-4">Meticulously stitched by artisans for the perfect fit.</p>
-              <Button variant="outline" className="text-black border-white bg-white hover:bg-primary hover:text-white hover:border-primary">
-                <Link to="/products?category=shirts">Explore</Link>
-              </Button>
+          {loadingCats ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-          </motion.div>
-        </motion.div>
+          ) : (
+            <div 
+              ref={scrollRef}
+              className="flex gap-4 overflow-x-auto pb-8 snap-x snap-mandatory no-scrollbar"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+              {categories.map((cat, index) => (
+                  <motion.div 
+                  key={index}
+                  variants={itemVariants} 
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true }}
+                  onClick={() => navigate(`/products?category=${cat.name}`)} 
+                  className="w-[160px] md:w-[220px] flex-shrink-0 group relative overflow-hidden rounded-xl aspect-[3/4] cursor-pointer snap-center shadow-lg bg-muted border border-border/50 transition-all duration-500 hover:shadow-2xl"
+                >
+                  <img
+                    src={cat.image}
+                    alt={`${cat.name} Collection | Cloth Couture Handmade Fashion`}
+                    className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
+                    loading="lazy"
+                    onError={(e) => { e.target.src = '/images/hero_banner.png'; }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-transparent"></div>
+                  <div className="absolute bottom-0 left-0 p-5 md:p-6 w-full text-white translate-y-1 group-hover:translate-y-0 transition-transform duration-500">
+                    <span className="text-[10px] md:text-[11px] font-bold uppercase tracking-[0.2em] text-primary mb-1.5 block drop-shadow-sm">Discover</span>
+                    <h3 className="text-xl md:text-2xl font-serif mb-2 capitalize leading-tight drop-shadow-md">{cat.name}</h3>
+                    <div className="flex items-center gap-2 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-700 uppercase tracking-widest text-primary-dark font-serif">
+                      Explore All <ChevronRight className="h-3.5 w-3.5" />
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </div>
       </section>
 
       {/* Philosophy Section */}

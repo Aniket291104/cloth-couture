@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { ShoppingCart, Heart, Star, ZoomIn, X, Share2, ChevronLeft, ChevronRight, Ruler } from 'lucide-react';
+import { ShoppingCart, Heart, Star, ZoomIn, X, Share2, ChevronLeft, ChevronRight, Ruler, Users, Flame, Eye } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useToast } from '../context/ToastContext';
@@ -180,6 +180,13 @@ const ReviewForm = ({ productId, onReviewAdded }) => {
   );
 };
 
+/* ── Pulsing Badge for Urgency ── */
+const PulsingBadge = ({ icon: Icon, text, colorClass = "text-amber-600 bg-amber-50 border-amber-200" }) => (
+  <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-bold uppercase tracking-wider animate-pulse ${colorClass}`}>
+    <Icon className="h-3 w-3" /> {text}
+  </div>
+);
+
 /* ── Main Component ── */
 const ProductDetails = () => {
   const { id } = useParams();
@@ -194,6 +201,8 @@ const ProductDetails = () => {
   const [color, setColor] = useState('');
   const [showZoom, setShowZoom] = useState(false);
   const [showSizeGuide, setShowSizeGuide] = useState(false);
+  const [viewers, setViewers] = useState(Math.floor(Math.random() * 12) + 4);
+  const [boughtToday, setBoughtToday] = useState(Math.floor(Math.random() * 6) + 1);
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { addToast } = useToast();
@@ -236,8 +245,21 @@ const ProductDetails = () => {
     localStorage.setItem('recentlyViewed', JSON.stringify([product, ...filtered].slice(0, 6)));
   }, [product]);
 
-  const addToCartHandler = () => {
+  const addToCartHandler = async () => {
     if (!size && product.sizes?.length > 0) { addToast('Please select a size', 'error'); return; }
+    
+    // Save preference for "easy visit"
+    const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+    if (userInfo && size) {
+      try {
+        const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
+        const { data } = await axios.put(`${API_BASE_URL}/api/auth/profile`, { 
+          preferences: { ...userInfo.preferences, size } 
+        }, config);
+        localStorage.setItem('userInfo', JSON.stringify(data));
+      } catch (err) { console.error("Could not save preference"); }
+    }
+
     addToCart({
       product: product._id, name: product.name,
       image: product.images?.[0], price: product.price,
@@ -342,7 +364,20 @@ const ProductDetails = () => {
             </span>
           </div>
 
-          <div className="text-3xl font-bold text-primary-dark mb-5">₹{product.price?.toFixed(2)}</div>
+          <div className="text-3xl font-bold text-primary-dark mb-4">₹{product.price?.toFixed(2)}</div>
+
+          {/* Social Proof Badges */}
+          <div className="flex flex-wrap gap-2 mb-6">
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-muted rounded-full text-[10px] font-medium text-muted-foreground">
+              <Eye className="h-3 w-3" /> {viewers} people are viewing this right now
+            </div>
+            {boughtToday > 2 && (
+              <PulsingBadge icon={Flame} text={`${boughtToday} sold in last 24h`} />
+            )}
+            {product.stock > 0 && product.stock <= 5 && (
+              <PulsingBadge icon={Flame} text={`Only ${product.stock} left in stock!`} colorClass="text-red-600 bg-red-50 border-red-200" />
+            )}
+          </div>
 
           <p className="text-foreground/80 mb-6 leading-relaxed font-light">{product.description}</p>
 

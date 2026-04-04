@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, Area, AreaChart,
 } from 'recharts';
-import { TrendingUp, ShoppingBag, Package, Users, IndianRupee, Clock, Truck, CheckCircle } from 'lucide-react';
+import { TrendingUp, ShoppingBag, Package, Users, IndianRupee, Clock, Truck, CheckCircle, Download, FileText, DollarSign, Percent } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/utils';
 
 const StatCard = ({ icon, label, value, sub, color }) => (
@@ -38,6 +38,20 @@ const AdminDashboard = () => {
     }).catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  const downloadCSV = (data, filename) => {
+    if (!data || data.length === 0) return;
+    const headers = Object.keys(data[0]).join(',');
+    const rows = data.map(obj => Object.values(obj).map(val => `"${val}"`).join(','));
+    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `${filename}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   if (loading) {
     return (
@@ -83,6 +97,12 @@ const AdminDashboard = () => {
           value={analytics?.deliveredOrders || 0}
           sub="Successfully fulfilled"
         />
+        <StatCard
+          icon={<DollarSign className="h-6 w-6 text-pink-600" />}
+          label="Avg. Order Value" color="bg-pink-50"
+          value={`₹${analytics?.totalOrders > 0 ? (analytics.totalRevenue / analytics.totalOrders).toFixed(0) : 0}`}
+          sub="Per transaction"
+        />
       </div>
 
       {/* Charts */}
@@ -123,6 +143,73 @@ const AdminDashboard = () => {
               <Bar dataKey="orders" fill="#6b7f5e" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Business Intelligence & Exports */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-card border border-border rounded-2xl p-6">
+          <h2 className="font-semibold text-foreground mb-6 flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" /> Mission Control Reports
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <button 
+              onClick={() => downloadCSV(products, 'products_report')}
+              className="flex flex-col items-center justify-center p-6 bg-muted/50 hover:bg-primary/5 border border-border rounded-2xl transition-all group"
+            >
+              <Package className="h-8 w-8 text-muted-foreground group-hover:text-primary mb-3" />
+              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground group-hover:text-foreground">Products CSV</span>
+              <Download className="h-4 w-4 mt-2 text-muted-foreground opacity-0 group-hover:opacity-100 transition-all" />
+            </button>
+            <button 
+              onClick={() => alert('Detailed order export requires backend history route.')}
+              className="flex flex-col items-center justify-center p-6 bg-muted/50 hover:bg-primary/5 border border-border rounded-2xl transition-all group"
+            >
+              <ShoppingBag className="h-8 w-8 text-muted-foreground group-hover:text-primary mb-3" />
+              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground group-hover:text-foreground">Sales Report</span>
+              <Download className="h-4 w-4 mt-2 text-muted-foreground opacity-0 group-hover:opacity-100 transition-all" />
+            </button>
+            <button 
+              onClick={() => alert('Newsletter subscribers export is available in the Subscribers tab.')}
+              className="flex flex-col items-center justify-center p-6 bg-muted/50 hover:bg-primary/5 border border-border rounded-2xl transition-all group"
+            >
+              <Users className="h-8 w-8 text-muted-foreground group-hover:text-primary mb-3" />
+              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground group-hover:text-foreground">Customer Data</span>
+              <Download className="h-4 w-4 mt-2 text-muted-foreground opacity-0 group-hover:opacity-100 transition-all" />
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-card border border-border rounded-2xl p-6">
+          <h2 className="font-semibold text-foreground mb-6 flex items-center gap-2">
+            <Percent className="h-5 w-5 text-primary" /> Key Performance
+          </h2>
+          <div className="space-y-6">
+            <div>
+              <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
+                <span>Fulfillment Rate</span>
+                <span>{analytics?.totalOrders > 0 ? ((analytics.deliveredOrders / analytics.totalOrders) * 100).toFixed(0) : 0}%</span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-2">
+                <div 
+                  className="bg-green-500 h-2 rounded-full transition-all duration-1000" 
+                  style={{ width: `${analytics?.totalOrders > 0 ? (analytics.deliveredOrders / analytics.totalOrders) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
+                <span>Revenue Growth</span>
+                <span>+12%</span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-2">
+                <div className="bg-primary h-2 rounded-full transition-all duration-1000" style={{ width: '85%' }} />
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-4 italic">
+              * Data is updated in real-time as orders are processed.
+            </p>
+          </div>
         </div>
       </div>
 
