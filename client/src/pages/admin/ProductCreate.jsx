@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import axios from 'axios';
-import { API_BASE_URL } from '@/lib/utils';
+import { API_BASE_URL, getImageUrl } from '@/lib/utils';
 
 const ProductCreate = () => {
   const navigate = useNavigate();
@@ -135,7 +135,7 @@ const ProductCreate = () => {
                 <div className="flex flex-wrap gap-2 mt-4">
                   {images.map((img, idx) => (
                     <div key={idx} className="relative w-20 h-20 border rounded overflow-hidden shadow-sm">
-                      <img src={img} alt={`upload-${idx}`} className="w-full h-full object-cover" />
+                      <img src={getImageUrl(img)} alt={`upload-${idx}`} className="w-full h-full object-cover" />
                       <button 
                         type="button" 
                         onClick={() => setImages(images.filter((_, i) => i !== idx))} 

@@ -5,6 +5,7 @@ import { Button } from '../ui/button';
 import { useCart } from '../../context/CartContext';
 import { useToast } from '../../context/ToastContext';
 import { Link } from 'react-router-dom';
+import { getImageUrl } from '../../lib/utils';
 
 const QuickView = ({ product, isOpen, onClose }) => {
   const { addToCart } = useCart();
@@ -58,7 +59,7 @@ const QuickView = ({ product, isOpen, onClose }) => {
             {/* Left: Images */}
             <div className="w-full md:w-1/2 aspect-square md:aspect-auto bg-muted">
               <img
-                src={product.images?.[0]}
+                src={getImageUrl(product.images?.[0])}
                 alt={product.name}
                 className="w-full h-full object-cover"
               />

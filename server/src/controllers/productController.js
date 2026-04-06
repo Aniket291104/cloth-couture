@@ -173,11 +173,21 @@ export const getProductSuggestions = async (req, res) => {
     res.json(products);
 };
 
+// Simple memory cache for categories
+let categoriesCache = null;
+let lastCacheUpdate = 0;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 // @desc    Get all categories
 // @route   GET /api/products/categories
 // @access  Public
 export const getCategories = async (req, res) => {
     try {
+        const now = Date.now();
+        if (categoriesCache && (now - lastCacheUpdate) < CACHE_DURATION) {
+            return res.json(categoriesCache);
+        }
+
         // Define standard categories that should always be visible
         const standardCategories = ['Dresses', 'Shirts', 'Bottoms', 'Outerwear', 'Accessories', 'New Arrivals'];
         
@@ -200,9 +210,9 @@ export const getCategories = async (req, res) => {
             const placeholders = {
                 'Dresses': '/images/dress.png',
                 'Shirts': '/images/shirt.png',
-                'Bottoms': '/images/placeholder.png',
-                'Outerwear': '/images/placeholder.png',
-                'Accessories': '/images/placeholder.png',
+                'Bottoms': '/images/pants.png',
+                'Outerwear': '/images/outerwear.png',
+                'Accessories': '/images/accessories.png',
                 'New Arrivals': '/images/hero_banner.png'
             };
 
@@ -212,6 +222,8 @@ export const getCategories = async (req, res) => {
             };
         }));
         
+        categoriesCache = categoryData;
+        lastCacheUpdate = now;
         res.json(categoryData);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching categories' });

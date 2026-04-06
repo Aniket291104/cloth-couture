@@ -7,7 +7,7 @@ import { ShoppingCart, Heart, Star, ZoomIn, X, Share2, ChevronLeft, ChevronRight
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useToast } from '../context/ToastContext';
-import { API_BASE_URL } from '@/lib/utils';
+import { API_BASE_URL, getImageUrl } from '@/lib/utils';
 
 /* ── Loading Skeleton ── */
 const Skeleton = ({ className }) => (
@@ -98,7 +98,7 @@ const ZoomModal = ({ images, startIndex, onClose }) => {
       <motion.img
         key={current}
         initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-        src={images[current]} alt="Product zoom"
+        src={getImageUrl(images[current])} alt="Product zoom"
         className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg"
       />
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
@@ -312,7 +312,7 @@ const ProductDetails = () => {
             <AnimatePresence mode="wait">
               <motion.img
                 key={activeImage}
-                src={images[activeImage] || '/images/placeholder.png'}
+                src={getImageUrl(images[activeImage])}
                 alt={product.name}
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
@@ -341,7 +341,7 @@ const ProductDetails = () => {
             {images.map((img, i) => (
               <button key={i} onClick={() => setActiveImage(i)}
                 className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${activeImage === i ? 'border-primary' : 'border-transparent hover:border-border'}`}>
-                <img src={img} alt={`View ${i + 1}`} className="w-full h-full object-cover" />
+                <img src={getImageUrl(img)} alt={`View ${i + 1}`} className="w-full h-full object-cover" />
               </button>
             ))}
           </div>
@@ -484,7 +484,7 @@ const ProductDetails = () => {
             {related.map(p => (
               <Link key={p._id} to={`/products/${p._id}`} className="group">
                 <div className="aspect-[4/5] bg-muted rounded-xl overflow-hidden mb-3 relative">
-                  <img src={p.images?.[0] || '/images/placeholder.png'} alt={p.name}
+                  <img src={getImageUrl(p.images?.[0])} alt={p.name}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                 </div>
                 <h3 className="font-serif font-medium text-sm text-foreground hover:text-primary transition-colors truncate">{p.name}</h3>

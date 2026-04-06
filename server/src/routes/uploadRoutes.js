@@ -48,11 +48,9 @@ router.post('/', upload.array('images', 10), (req, res) => {
   if (!req.files || req.files.length === 0) {
     return res.status(400).send({ message: 'No file uploaded' });
   }
-  // Dynamically determine the base URL
-  const baseUrl = `${req.protocol}://${req.get('host')}`;
-  // Return just the URL path that the main server can serve
-  const fileUrls = req.files.map(file => `${baseUrl}/uploads/${file.filename}`);
-  console.log(`Generated file URLs: ${JSON.stringify(fileUrls)}`);
+  // Return just the relative URL path that the client can combine with its API_BASE_URL
+  const fileUrls = req.files.map(file => `/uploads/${file.filename}`);
+  console.log(`Generated file relative URLs: ${JSON.stringify(fileUrls)}`);
   res.send(fileUrls);
 });
 

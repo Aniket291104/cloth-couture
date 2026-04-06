@@ -6,7 +6,7 @@ import { Heart, SlidersHorizontal, X, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useWishlist } from '../context/WishlistContext';
 import { useToast } from '../context/ToastContext';
-import { API_BASE_URL } from '@/lib/utils';
+import { API_BASE_URL, getImageUrl } from '@/lib/utils';
 import QuickView from '../components/storefront/QuickView.jsx';
 
 const ProductSkeleton = () => (
@@ -189,7 +189,7 @@ const Products = () => {
             >
               <Link to={`/products/${product._id}`} className="block relative aspect-[4/5] overflow-hidden rounded-xl mb-4 bg-muted">
                 <img
-                  src={product.images?.[0] || '/images/placeholder.png'}
+                  src={getImageUrl(product.images?.[0])}
                   alt={product.name}
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                   loading="lazy"

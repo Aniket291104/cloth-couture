@@ -17,4 +17,16 @@ export default defineConfig({
     port: 5173,
     open: true,
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'framer-motion': ['framer-motion'],
+          'recharts': ['recharts'],
+          'vendor': ['react', 'react-dom', 'react-router-dom', 'axios'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000,
+  },
 });

@@ -3,7 +3,7 @@ import RecentlyViewed from '../components/RecentlyViewed';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { API_BASE_URL } from '@/lib/utils';
+import { API_BASE_URL, getImageUrl } from '@/lib/utils';
 import axios from 'axios';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 
@@ -168,7 +168,7 @@ const Home = () => {
                   className="w-[160px] md:w-[220px] flex-shrink-0 group relative overflow-hidden rounded-xl aspect-[3/4] cursor-pointer snap-center shadow-lg bg-muted border border-border/50 transition-all duration-500 hover:shadow-2xl"
                 >
                   <img
-                    src={cat.image}
+                    src={getImageUrl(cat.image)}
                     alt={`${cat.name} Collection | Cloth Couture Handmade Fashion`}
                     className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
                     loading="lazy"

@@ -51,5 +51,12 @@ const productSchema = new mongoose.Schema({
     timestamps: true,
 });
 
+// Add text index for search
+productSchema.index({ name: 'text', description: 'text' });
+// Add index for category filtering
+productSchema.index({ category: 1 });
+// Add index for price sorting/filtering
+productSchema.index({ price: 1 });
+
 const Product = mongoose.model('Product', productSchema);
 export default Product;

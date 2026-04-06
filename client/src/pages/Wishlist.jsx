@@ -5,6 +5,7 @@ import { Heart, ShoppingCart, Trash2 } from 'lucide-react';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
 import { Button } from '@/components/ui/button';
+import { getImageUrl } from '../lib/utils';
 
 const Wishlist = () => {
   const { wishlist, removeFromWishlist } = useWishlist();
@@ -77,7 +78,7 @@ const Wishlist = () => {
                   className="relative aspect-[4/5] overflow-hidden rounded-lg mb-4 bg-muted block"
                 >
                   <img
-                    src={product.images?.[0] || product.image || '/images/placeholder.png'}
+                    src={getImageUrl(product.images?.[0] || product.image)}
                     alt={product.name}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                   />

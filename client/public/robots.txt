@@ -6,4 +6,4 @@ Disallow: /cart
 Disallow: /checkout
 Disallow: /my-orders
 
-Sitemap: https://clothcouture.com/sitemap.xml
+Sitemap: https://cloth-couture-client.vercel.app/sitemap.xml

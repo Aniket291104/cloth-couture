@@ -13,6 +13,7 @@ import adminRoutes from './routes/adminRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 import newsletterRoutes from './routes/newsletterRoutes.js';
 import couponRoutes from './routes/couponRoutes.js';
+import compression from 'compression';
 import path from 'path';
 import fs from 'fs';
 
@@ -26,6 +27,7 @@ connectDB();
 
 const app = express();
 
+app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:3000')

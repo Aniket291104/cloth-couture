@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Clock, Eye, ShoppingCart, ChevronRight, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getImageUrl } from '../lib/utils';
 
 const RecentlyViewed = () => {
   const [products, setProducts] = useState([]);
@@ -41,7 +42,7 @@ const RecentlyViewed = () => {
               <Link to={`/products/${product._id}`} className="group relative block bg-background rounded-[2rem] overflow-hidden shadow-sm hover:shadow-xl transition-all h-full border border-border/50">
                 <div className="aspect-[3/4] overflow-hidden relative">
                   <img
-                    src={product.images?.[0] || product.image || '/images/placeholder.png'}
+                    src={getImageUrl(product.images?.[0] || product.image)}
                     alt={product.name}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />

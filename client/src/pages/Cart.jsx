@@ -4,7 +4,7 @@ import { useCart } from '../context/CartContext';
 import { Button } from '@/components/ui/button';
 import { Trash2, Tag, X, CheckCircle } from 'lucide-react';
 import axios from 'axios';
-import { API_BASE_URL } from '@/lib/utils';
+import { API_BASE_URL, getImageUrl } from '@/lib/utils';
 import { useToast } from '../context/ToastContext';
 
 const Cart = () => {
@@ -66,7 +66,7 @@ const Cart = () => {
               <ul className="divide-y divide-border">
                 {cartItems.map(item => (
                   <li key={`${item.product}-${item.size}`} className="p-5 flex flex-col sm:flex-row gap-4">
-                    <img src={item.image} alt={item.name}
+                    <img src={getImageUrl(item.image)} alt={item.name}
                       className="w-24 h-24 object-cover rounded-xl flex-shrink-0" />
                     <div className="flex-1">
                       <div className="flex justify-between items-start">
