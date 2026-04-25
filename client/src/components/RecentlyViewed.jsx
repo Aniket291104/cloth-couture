@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, Eye, ShoppingCart, ChevronRight, Sparkles } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Eye, ShoppingCart, ChevronRight, Sparkles } from 'lucide-react';
 import { getImageUrl } from '../lib/utils';
+import AdaptiveImage from '@/components/ui/AdaptiveImage';
 
 const RecentlyViewed = () => {
   const [products, setProducts] = useState([]);
@@ -30,21 +30,20 @@ const RecentlyViewed = () => {
         </div>
 
         <div className="flex gap-6 overflow-x-auto pb-8 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
-          {products.map((product, i) => (
-            <motion.div
+          {products.map((product) => (
+            <div
               key={product._id}
-              initial={{ opacity: 0, scale: 0.9, x: 20 }}
-              whileInView={{ opacity: 1, scale: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.1, duration: 0.5 }}
               className="flex-shrink-0 w-[240px] md:w-[280px]"
             >
               <Link to={`/products/${product._id}`} className="group relative block bg-background rounded-[2rem] overflow-hidden shadow-sm hover:shadow-xl transition-all h-full border border-border/50">
                 <div className="aspect-[3/4] overflow-hidden relative">
-                  <img
+                  <AdaptiveImage
                     src={getImageUrl(product.images?.[0] || product.image)}
                     alt={product.name}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    loading="lazy"
+                    decoding="async"
+                    sizes="(max-width: 768px) 240px, 280px"
                   />
                   <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
                      <div className="bg-white text-primary px-5 py-2.5 rounded-full font-bold text-xs uppercase tracking-widest flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform">
@@ -73,7 +72,7 @@ const RecentlyViewed = () => {
                   </div>
                 </div>
               </Link>
-            </motion.div>
+            </div>
           ))}
           
           {/* Last slide - Explore button */}

@@ -31,7 +31,7 @@ const AdminDashboard = () => {
 
     Promise.all([
       axios.get(`${API_BASE_URL}/api/orders/analytics`, config),
-      axios.get(`${API_BASE_URL}/api/products`),
+      axios.get(`${API_BASE_URL}/api/products?fields=admin-card`),
     ]).then(([analyticsRes, productsRes]) => {
       setAnalytics(analyticsRes.data);
       setProducts(productsRes.data);

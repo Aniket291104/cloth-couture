@@ -7,6 +7,38 @@ export function cn(...inputs) {
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
+const isBrowser = typeof window !== 'undefined';
+
+export function readCachedJSON(key, maxAgeMs, storage = isBrowser ? window.localStorage : null) {
+  if (!storage) return null;
+  try {
+    const raw = storage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    if (typeof parsed.timestamp !== 'number') return null;
+    if (Date.now() - parsed.timestamp > maxAgeMs) return null;
+    return parsed.value;
+  } catch {
+    return null;
+  }
+}
+
+export function writeCachedJSON(key, value, storage = isBrowser ? window.localStorage : null) {
+  if (!storage) return;
+  try {
+    storage.setItem(
+      key,
+      JSON.stringify({
+        timestamp: Date.now(),
+        value,
+      })
+    );
+  } catch {
+    // Ignore storage quota errors.
+  }
+}
+
 export function getImageUrl(imagePath) {
   if (!imagePath) return '/images/placeholder.png';
   if (imagePath.startsWith('http')) return imagePath;

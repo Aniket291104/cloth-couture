@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, XCircle, Info, X } from 'lucide-react';
 
 const ToastContext = createContext();
@@ -30,30 +29,24 @@ export const ToastProvider = ({ children }) => {
   const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
 
   return (
-    <ToastContext.Provider value={{ addToast }}>
+      <ToastContext.Provider value={{ addToast }}>
       {children}
       <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-3 max-w-sm w-full pointer-events-none">
-        <AnimatePresence>
-          {toasts.map(toast => (
-            <motion.div
-              key={toast.id}
-              initial={{ opacity: 0, x: 100, scale: 0.9 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 100, scale: 0.9 }}
-              transition={{ duration: 0.3 }}
-              className={`pointer-events-auto flex items-start gap-3 p-4 rounded-xl border shadow-lg ${bgMap[toast.type]}`}
+        {toasts.map(toast => (
+          <div
+            key={toast.id}
+            className={`pointer-events-auto flex items-start gap-3 p-4 rounded-xl border shadow-lg animate-in slide-in-from-right-5 fade-in duration-200 ${bgMap[toast.type]}`}
+          >
+            <div className="flex-shrink-0 mt-0.5">{icons[toast.type]}</div>
+            <p className="flex-1 text-sm font-medium text-gray-800">{toast.message}</p>
+            <button
+              onClick={() => removeToast(toast.id)}
+              className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
             >
-              <div className="flex-shrink-0 mt-0.5">{icons[toast.type]}</div>
-              <p className="flex-1 text-sm font-medium text-gray-800">{toast.message}</p>
-              <button
-                onClick={() => removeToast(toast.id)}
-                className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </motion.div>
-          ))}
-        </AnimatePresence>
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
       </div>
     </ToastContext.Provider>
   );
