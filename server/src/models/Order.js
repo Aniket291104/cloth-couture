@@ -41,6 +41,34 @@ const orderSchema = new mongoose.Schema({
         default: 'Pending',
         enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
     },
+    cancellationReason: { type: String, default: '' },
+    cancelledAt: { type: Date },
+    returnRequest: {
+        type: {
+            type: String,
+            enum: ['Return', 'Replacement', ''],
+            default: '',
+        },
+        reason: { type: String, default: '' },
+        status: {
+            type: String,
+            enum: ['None', 'Requested', 'Approved', 'Rejected', 'Completed'],
+            default: 'None',
+        },
+        requestedAt: { type: Date },
+    },
+    supportRequests: [
+        {
+            topic: { type: String, required: true },
+            message: { type: String, required: true },
+            status: {
+                type: String,
+                enum: ['Open', 'In Review', 'Resolved'],
+                default: 'Open',
+            },
+            createdAt: { type: Date, default: Date.now },
+        }
+    ],
     address: {
         address: { type: String, required: true },
         city: { type: String, required: true },

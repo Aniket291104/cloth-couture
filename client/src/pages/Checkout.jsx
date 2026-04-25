@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import axios from 'axios';
-import { API_BASE_URL } from '@/lib/utils';
+import { API_BASE_URL, getImageUrl } from '@/lib/utils';
 import { useToast } from '../context/ToastContext';
-import { MapPin, CreditCard, Loader2, Phone, Coins, CheckCircle2, ChevronRight, Truck, ShoppingBag, Globe, Check, Home, Briefcase, Plus } from 'lucide-react';
+import { MapPin, CreditCard, Loader2, Phone, Coins, CheckCircle2, ChevronRight, Truck, ShoppingBag, Globe, Check, Home, Briefcase, Plus, TrendingUp, Banknote } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const loadRazorpay = () =>
@@ -25,6 +25,17 @@ const Checkout = () => {
   const location = useLocation();
   const { cartItems, clearCart } = useCart();
   const { addToast } = useToast();
+  const storedBuyNowItem = (() => {
+    if (location.state && !location.state.buyNow) return null;
+    try {
+      return JSON.parse(sessionStorage.getItem('buyNowItem') || 'null');
+    } catch {
+      return null;
+    }
+  })();
+  const buyNowItem = location.state?.buyNowItem || storedBuyNowItem;
+  const checkoutItems = buyNowItem ? [buyNowItem] : cartItems;
+  const isBuyNow = Boolean(buyNowItem);
 
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
@@ -35,6 +46,7 @@ const Checkout = () => {
   const [step, setStep] = useState(1);
   const [fetchingLocation, setFetchingLocation] = useState(false);
   const [placingOrder, setPlacingOrder] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('Razorpay');
 
   // Loyalty & Coupons
   const [userPoints, setUserPoints] = useState(0);
@@ -62,7 +74,7 @@ const Checkout = () => {
     }
   }, []);
 
-  const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.qty, 0);
+  const subtotal = checkoutItems.reduce((acc, item) => acc + item.price * item.qty, 0);
   const shippingPrice = subtotal > 1500 ? 0 : 150;
   
   // Loyalty redemption: 100 coins = 2rs (1 coin = 0.02rs)
@@ -74,11 +86,30 @@ const Checkout = () => {
   
   const finalTotal = subtotal + shippingPrice - pointsDiscount - discountAmount;
 
+  if (checkoutItems.length === 0) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+        <div className="text-center rounded-2xl border border-border bg-card p-10 shadow-sm">
+          <ShoppingBag className="h-12 w-12 text-primary mx-auto mb-4" />
+          <h1 className="text-3xl font-serif font-bold text-foreground mb-3">Your checkout is empty</h1>
+          <p className="text-muted-foreground mb-6">Add a product first, or use Buy Now from a product page to start checkout directly.</p>
+          <Button asChild className="bg-primary hover:bg-primary-dark text-white rounded-xl px-8">
+            <Link to="/products">Shop Products</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const handleApplyCoupon = async () => {
     if (!couponCode) return;
     setValidatingCoupon(true);
     try {
       const userInfoLocal = JSON.parse(localStorage.getItem('userInfo'));
+      if (!userInfoLocal) {
+        addToast('Please login to apply coupons', 'error');
+        return;
+      }
       const { data } = await axios.post(`${API_BASE_URL}/api/orders/validate-coupon`, 
         { code: couponCode, amount: subtotal },
         { headers: { Authorization: `Bearer ${userInfoLocal.token}` } }
@@ -100,15 +131,61 @@ const Checkout = () => {
     setCountry(addr.country); setPhone(addr.phone); setAlternatePhone(addr.alternatePhone);
   };
 
+  const finishSuccessfulOrder = (userInfoLocal, earnCoins = false) => {
+    const updatedUser = {
+      ...userInfoLocal,
+      loyaltyPoints:
+        (userInfoLocal.loyaltyPoints || 0) -
+        (usePoints ? pointsToUse : 0) +
+        (earnCoins ? Math.floor(finalTotal * 0.02) : 0),
+    };
+    localStorage.setItem('userInfo', JSON.stringify(updatedUser));
+
+    if (isBuyNow) {
+      sessionStorage.removeItem('buyNowItem');
+    } else {
+      clearCart();
+    }
+  };
+
+  const buildOrderData = (method) => ({
+    orderItems: checkoutItems.map(item => ({ ...item, product: item.product })),
+    shippingAddress: { address, city, postalCode, country, phone, alternatePhone },
+    paymentMethod: method,
+    itemsPrice: subtotal,
+    shippingPrice,
+    taxPrice: 0,
+    totalPrice: finalTotal,
+    pointsSpent: usePoints ? pointsToUse : 0,
+    couponCode,
+    discountAmount,
+  });
+
   const placeOrderHandler = async () => {
     if (!address || !city || !postalCode) { addToast('Please fill all address fields', 'error'); return; }
+    if (!phone) { addToast('Please add a primary contact number', 'error'); return; }
     setPlacingOrder(true);
     try {
+      const userInfoLocal = JSON.parse(localStorage.getItem('userInfo'));
+      if (!userInfoLocal) {
+        addToast('Please login to continue checkout', 'error');
+        navigate('/login', { state: { from: '/checkout' } });
+        return;
+      }
+
+      const config = { headers: { Authorization: `Bearer ${userInfoLocal.token}` } };
+      const orderData = buildOrderData(paymentMethod);
+
+      if (paymentMethod === 'COD') {
+        await axios.post(`${API_BASE_URL}/api/orders`, orderData, config);
+        finishSuccessfulOrder(userInfoLocal, false);
+        addToast('Cash on Delivery order placed successfully!', 'success');
+        navigate('/my-orders');
+        return;
+      }
+
       const isLoaded = await loadRazorpay();
       if (!isLoaded) { addToast('Razorpay failed to load', 'error'); return; }
-
-      const userInfoLocal = JSON.parse(localStorage.getItem('userInfo'));
-      const config = { headers: { Authorization: `Bearer ${userInfoLocal.token}` } };
 
       const { data: rzOrder } = await axios.post(`${API_BASE_URL}/api/orders/razorpay`, { amount: finalTotal }, config);
 
@@ -121,14 +198,6 @@ const Checkout = () => {
         order_id: rzOrder.id,
         handler: async (response) => {
           try {
-            const orderData = {
-              orderItems: cartItems.map(item => ({ ...item, product: item.product })),
-              shippingAddress: { address, city, postalCode, country, phone, alternatePhone },
-              paymentMethod: 'Razorpay',
-              itemsPrice: subtotal, shippingPrice, taxPrice: 0, totalPrice: finalTotal,
-              pointsSpent: usePoints ? pointsToUse : 0,
-              couponCode, discountAmount,
-            };
             const { data } = await axios.post(`${API_BASE_URL}/api/orders`, orderData, config);
             await axios.put(`${API_BASE_URL}/api/orders/${data._id}/pay`, {
               razorpay_order_id: response.razorpay_order_id,
@@ -136,15 +205,11 @@ const Checkout = () => {
               razorpay_signature: response.razorpay_signature,
             }, config);
 
-            // Update user balance locally
-            const updatedUser = { ...userInfoLocal, loyaltyPoints: userInfoLocal.loyaltyPoints - (usePoints ? pointsToUse : 0) + Math.floor(finalTotal * 0.02) };
-            localStorage.setItem('userInfo', JSON.stringify(updatedUser));
-
-            clearCart();
+            finishSuccessfulOrder(userInfoLocal, true);
             addToast('Order placed successfully!', 'success');
             navigate('/profile');
           } catch (err) {
-            addToast('Payment processing failed', 'error');
+            addToast(err.response?.data?.message || 'Payment processing failed', 'error');
           }
         },
         prefill: { name: userInfoLocal.name, email: userInfoLocal.email, contact: phone },
@@ -154,7 +219,7 @@ const Checkout = () => {
       const rzp1 = new window.Razorpay(options);
       rzp1.open();
     } catch (err) {
-      addToast('Order creation failed', 'error');
+      addToast(err.response?.data?.message || 'Order creation failed', 'error');
     } finally {
       setPlacingOrder(false);
     }
@@ -167,13 +232,19 @@ const Checkout = () => {
       async (pos) => {
         try {
           const { latitude, longitude } = pos.coords;
-          const res = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-          const addr = res.data.address;
-          setAddress(`${addr.road || ''}, ${addr.suburb || addr.neighbourhood || ''}`);
-          setCity(addr.city || addr.town || addr.village || '');
-          setPostalCode(addr.postcode || '');
+          const { data } = await axios.get(`${API_BASE_URL}/api/geocode/reverse`, {
+            params: { lat: latitude, lon: longitude },
+          });
+          setAddress(data.address || `Near ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+          setCity(data.city || '');
+          setPostalCode(data.postalCode || '');
+          setCountry(data.country || 'India');
           addToast('Location detected!', 'success');
-        } catch { addToast('Reverse geocoding failed', 'warning'); }
+        } catch {
+          const { latitude, longitude } = pos.coords;
+          setAddress(`Near ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+          addToast('Could not find full address. Please complete it manually.', 'warning');
+        }
         finally { setFetchingLocation(false); }
       },
       () => { addToast('Location access denied', 'error'); setFetchingLocation(false); }
@@ -266,6 +337,42 @@ const Checkout = () => {
                     <h2 className="text-2xl font-serif font-bold mb-8 flex items-center gap-3">
                        <CreditCard className="h-6 w-6 text-primary" /> Payment Method
                     </h2>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                       <button
+                         type="button"
+                         onClick={() => setPaymentMethod('Razorpay')}
+                         className={`flex items-center gap-4 rounded-2xl border-2 p-6 text-left transition-all ${
+                           paymentMethod === 'Razorpay' ? 'border-primary bg-primary/5 shadow-sm' : 'border-border bg-background hover:border-primary/30'
+                         }`}
+                       >
+                          <span className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                            <CreditCard className="h-6 w-6 text-primary" />
+                          </span>
+                          <span>
+                            <span className="block font-bold text-foreground">Online Payment</span>
+                            <span className="block text-xs text-muted-foreground mt-1">UPI, cards, netbanking via Razorpay</span>
+                          </span>
+                          {paymentMethod === 'Razorpay' && <CheckCircle2 className="h-5 w-5 text-primary ml-auto" />}
+                       </button>
+
+                       <button
+                         type="button"
+                         onClick={() => setPaymentMethod('COD')}
+                         className={`flex items-center gap-4 rounded-2xl border-2 p-6 text-left transition-all ${
+                           paymentMethod === 'COD' ? 'border-primary bg-primary/5 shadow-sm' : 'border-border bg-background hover:border-primary/30'
+                         }`}
+                       >
+                          <span className="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center">
+                            <Banknote className="h-6 w-6 text-green-600" />
+                          </span>
+                          <span>
+                            <span className="block font-bold text-foreground">Cash on Delivery</span>
+                            <span className="block text-xs text-muted-foreground mt-1">Pay when your order arrives</span>
+                          </span>
+                          {paymentMethod === 'COD' && <CheckCircle2 className="h-5 w-5 text-primary ml-auto" />}
+                       </button>
+                    </div>
                     
                     {/* Coupon Input */}
                     <div className="bg-primary/5 p-8 rounded-3xl border border-primary/20 mb-8">
@@ -296,7 +403,11 @@ const Checkout = () => {
 
                     <div className="mt-12 flex items-center gap-4 p-8 bg-muted/40 rounded-3xl border border-border">
                        <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm"><Check className="h-6 w-6 text-green-600" /></div>
-                       <p className="text-sm font-medium">Safe & Secure Payment via <span className="font-bold">Razorpay</span> (UPI, Cards, Netbanking)</p>
+                       <p className="text-sm font-medium">
+                         {paymentMethod === 'COD'
+                           ? 'Cash on Delivery selected. Keep the exact payable amount ready at delivery.'
+                           : <>Safe & Secure Payment via <span className="font-bold">Razorpay</span> (UPI, Cards, Netbanking)</>}
+                       </p>
                     </div>
                     
                     <div className="mt-12 flex justify-between gap-4">
@@ -321,11 +432,18 @@ const Checkout = () => {
                              <p className="text-[10px] text-muted-foreground mt-1 tracking-wider underline">{phone}</p>
                           </div>
                        </div>
+                       <div className="flex items-start gap-4 p-5 bg-muted/30 rounded-2xl">
+                          {paymentMethod === 'COD' ? <Banknote className="h-5 w-5 text-green-600 mt-1" /> : <CreditCard className="h-5 w-5 text-primary mt-1" />}
+                          <div>
+                             <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Payment Method</p>
+                             <p className="text-sm font-medium">{paymentMethod === 'COD' ? 'Cash on Delivery' : 'Online Payment via Razorpay'}</p>
+                          </div>
+                       </div>
                        
                        <div className="space-y-4 pt-4 border-t border-border">
-                          {cartItems.map(item => (
+                          {checkoutItems.map(item => (
                             <div key={`${item.product}-${item.size}`} className="flex items-center gap-4">
-                               <img src={item.image} alt={item.name} className="w-16 h-16 rounded-xl object-cover shadow-sm" />
+                               <img src={getImageUrl(item.image)} alt={item.name} className="w-16 h-16 rounded-xl object-cover shadow-sm" />
                                <div className="flex-1">
                                   <p className="text-sm font-bold">{item.name}</p>
                                   <p className="text-[10px] text-muted-foreground uppercase font-black">{item.size} · {item.qty} Unit{item.qty > 1 ? 's' : ''}</p>
@@ -340,7 +458,7 @@ const Checkout = () => {
                        <Button variant="ghost" onClick={() => setStep(2)} className="rounded-2xl h-14">Modify Details</Button>
                        <Button onClick={placeOrderHandler} disabled={placingOrder} className="rounded-2xl h-14 flex-1 bg-black text-white shadow-xl hover:bg-primary-dark transition-all">
                           {placingOrder ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <ShoppingBag className="h-5 w-5 mr-2" />} 
-                          Pay ₹{finalTotal.toFixed(2)} Securely
+                          {paymentMethod === 'COD' ? `Place COD Order - ₹${finalTotal.toFixed(2)}` : `Pay ₹${finalTotal.toFixed(2)} Securely`}
                        </Button>
                     </div>
                  </Card>
@@ -353,7 +471,7 @@ const Checkout = () => {
         <div className="lg:w-[400px]">
           <div className="sticky top-28 space-y-6">
             <Card className="rounded-[2.5rem] border-none shadow-premium-dark bg-primary-dark text-white overflow-hidden p-8">
-               <h3 className="text-lg font-serif font-bold mb-8 border-b border-white/10 pb-4">Order Summary</h3>
+               <h3 className="text-lg font-serif font-bold mb-8 border-b border-white/10 pb-4">{isBuyNow ? 'Buy Now Summary' : 'Order Summary'}</h3>
                <div className="space-y-5 text-sm">
                   <div className="flex justify-between items-center opacity-80">
                      <span>Item Subtotal</span>

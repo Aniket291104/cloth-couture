@@ -13,6 +13,7 @@ import adminRoutes from './routes/adminRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 import newsletterRoutes from './routes/newsletterRoutes.js';
 import couponRoutes from './routes/couponRoutes.js';
+import geocodeRoutes from './routes/geocodeRoutes.js';
 import compression from 'compression';
 import path from 'path';
 import fs from 'fs';
@@ -51,6 +52,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/newsletter', newsletterRoutes);
 app.use('/api/coupons', couponRoutes);
+app.use('/api/geocode', geocodeRoutes);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const serverRoot = path.join(__dirname, '..');
@@ -60,10 +62,13 @@ if (!fs.existsSync(uploadsPath)) {
   fs.mkdirSync(uploadsPath);
 }
 
-app.use('/uploads', (req, res, next) => {
-  console.log(`Request for upload: ${req.url}`);
-  next();
-}, express.static(uploadsPath));
+app.use('/uploads', express.static(uploadsPath, {
+  etag: true,
+  maxAge: '7d',
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'public, max-age=604800, stale-while-revalidate=86400');
+  },
+}));
 
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is running' });

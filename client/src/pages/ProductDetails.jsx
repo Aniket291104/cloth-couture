@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { ShoppingCart, Heart, Star, ZoomIn, X, Share2, ChevronLeft, ChevronRight, Ruler, Users, Flame, Eye } from 'lucide-react';
+import { ShoppingBag, ShoppingCart, Heart, Star, ZoomIn, X, Share2, ChevronLeft, ChevronRight, Ruler, Users, Flame, Eye, ImagePlus, Loader2 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useToast } from '../context/ToastContext';
@@ -130,7 +130,29 @@ const ReviewForm = ({ productId, onReviewAdded }) => {
   const [rating, setRating] = useState(5);
   const [hover, setHover] = useState(0);
   const [comment, setComment] = useState('');
+  const [images, setImages] = useState([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const handleReviewImages = async (files) => {
+    const selectedFiles = Array.from(files || []).slice(0, 5);
+    if (selectedFiles.length === 0) return;
+
+    setUploadingImages(true);
+    try {
+      const formData = new FormData();
+      selectedFiles.forEach((file) => formData.append('images', file));
+      const { data } = await axios.post(`${API_BASE_URL}/api/upload`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setImages((current) => [...current, ...data].slice(0, 5));
+      addToast('Review image uploaded', 'success');
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Image upload failed', 'error');
+    } finally {
+      setUploadingImages(false);
+    }
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -140,11 +162,12 @@ const ReviewForm = ({ productId, onReviewAdded }) => {
     setSubmitting(true);
     try {
       await axios.post(`${API_BASE_URL}/api/products/${productId}/reviews`,
-        { rating, comment },
+        { rating, comment, images },
         { headers: { Authorization: `Bearer ${userInfo.token}` } }
       );
       addToast('Review submitted!', 'success');
       setComment('');
+      setImages([]);
       setRating(5);
       onReviewAdded();
     } catch (err) {
@@ -173,6 +196,37 @@ const ReviewForm = ({ productId, onReviewAdded }) => {
         rows={3}
         className="w-full px-4 py-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
       />
+      <div className="mt-3">
+        <label className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium hover:border-primary hover:text-primary cursor-pointer transition-colors">
+          {uploadingImages ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+          Add review images
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/jpg"
+            multiple
+            className="sr-only"
+            disabled={uploadingImages || images.length >= 5}
+            onChange={(e) => handleReviewImages(e.target.files)}
+          />
+        </label>
+        <p className="text-xs text-muted-foreground mt-2">Upload up to 5 JPG or PNG images.</p>
+        {images.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {images.map((img, index) => (
+              <div key={img} className="relative">
+                <img src={getImageUrl(img)} alt={`Review upload ${index + 1}`} className="h-16 w-16 rounded-lg object-cover border border-border" />
+                <button
+                  type="button"
+                  onClick={() => setImages((current) => current.filter((item) => item !== img))}
+                  className="absolute -right-2 -top-2 rounded-full bg-background border border-border p-1 shadow-sm"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
       <Button type="submit" disabled={submitting} className="mt-3 bg-primary hover:bg-primary-dark text-white">
         {submitting ? 'Submitting...' : 'Submit Review'}
       </Button>
@@ -245,9 +299,18 @@ const ProductDetails = () => {
     localStorage.setItem('recentlyViewed', JSON.stringify([product, ...filtered].slice(0, 6)));
   }, [product]);
 
-  const addToCartHandler = async () => {
+  const validateSelection = () => {
     if (!size && product.sizes?.length > 0) { addToast('Please select a size', 'error'); return; }
-    
+    return true;
+  };
+
+  const buildCartItem = () => ({
+    product: product._id, name: product.name,
+    image: product.images?.[0], price: product.price,
+    countInStock: product.stock, qty, size, color,
+  });
+
+  const saveSizePreference = async () => {
     // Save preference for "easy visit"
     const userInfo = JSON.parse(localStorage.getItem('userInfo'));
     if (userInfo && size) {
@@ -259,13 +322,21 @@ const ProductDetails = () => {
         localStorage.setItem('userInfo', JSON.stringify(data));
       } catch (err) { console.error("Could not save preference"); }
     }
+  };
 
-    addToCart({
-      product: product._id, name: product.name,
-      image: product.images?.[0], price: product.price,
-      countInStock: product.stock, qty, size, color,
-    });
+  const addToCartHandler = async () => {
+    if (!validateSelection()) return;
+    await saveSizePreference();
+    addToCart(buildCartItem());
     addToast(`${product.name} added to cart!`, 'success');
+  };
+
+  const buyNowHandler = async () => {
+    if (!validateSelection()) return;
+    await saveSizePreference();
+    const buyNowItem = buildCartItem();
+    sessionStorage.setItem('buyNowItem', JSON.stringify(buyNowItem));
+    navigate('/checkout', { state: { buyNow: true, buyNowItem } });
   };
 
   const handleShare = async () => {
@@ -433,10 +504,14 @@ const ProductDetails = () => {
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3">
             <Button size="lg" onClick={addToCartHandler} disabled={product.stock === 0}
-              className="flex-1 bg-primary hover:bg-primary-dark text-white rounded-xl py-6 text-base">
+              className="bg-primary hover:bg-primary-dark text-white rounded-xl py-6 text-base">
               <ShoppingCart className="mr-2 h-5 w-5" /> Add to Cart
+            </Button>
+            <Button size="lg" onClick={buyNowHandler} disabled={product.stock === 0}
+              className="bg-black hover:bg-primary-dark text-white rounded-xl py-6 text-base">
+              <ShoppingBag className="mr-2 h-5 w-5" /> Buy Now
             </Button>
             <Button size="lg" variant="outline" onClick={() => { toggleWishlist(product); addToast(inWishlist ? 'Removed from wishlist' : 'Added to wishlist!', 'info'); }}
               className={`px-5 rounded-xl py-6 border-2 hover:bg-transparent ${inWishlist ? 'border-primary' : 'border-border hover:border-primary'}`}>
@@ -469,6 +544,15 @@ const ProductDetails = () => {
                   <StarRating rating={review.rating} />
                 </div>
                 <p className="text-foreground/80 text-sm leading-relaxed">{review.comment}</p>
+                {review.images?.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {review.images.map((img, index) => (
+                      <button key={`${review._id}-${img}`} onClick={() => window.open(getImageUrl(img), '_blank')} className="h-20 w-20 overflow-hidden rounded-lg border border-border bg-muted">
+                        <img src={getImageUrl(img)} alt={`Review image ${index + 1}`} className="h-full w-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>

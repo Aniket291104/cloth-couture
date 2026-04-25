@@ -4,6 +4,8 @@ import { ChevronDown, RefreshCw } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/utils';
 
 const ORDER_STATUSES = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
+const RETURN_STATUSES = ['Requested', 'Approved', 'Rejected', 'Completed'];
+const HELP_STATUSES = ['Open', 'In Review', 'Resolved'];
 
 const statusColors = {
   Pending:    'bg-yellow-100 text-yellow-800',
@@ -55,6 +57,30 @@ const AdminOrders = () => {
       setOrders(prev => prev.map(o => o._id === id ? { ...o, paymentStatus: 'Paid' } : o));
     } catch (err) {
       alert(err.response?.data?.message || 'Update failed');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const updateReturnStatus = async (id, status) => {
+    setUpdatingId(id);
+    try {
+      const { data } = await axios.put(`${API_BASE_URL}/api/orders/${id}/return-status`, { status }, getConfig());
+      setOrders(prev => prev.map(o => o._id === id ? data : o));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Return update failed');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const updateHelpStatus = async (orderId, requestId, status) => {
+    setUpdatingId(orderId);
+    try {
+      const { data } = await axios.put(`${API_BASE_URL}/api/orders/${orderId}/help/${requestId}/status`, { status }, getConfig());
+      setOrders(prev => prev.map(o => o._id === orderId ? data : o));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Help update failed');
     } finally {
       setUpdatingId(null);
     }
@@ -163,6 +189,37 @@ const AdminOrders = () => {
                       )}
                       {order.address?.alternatePhone && (
                         <p className="text-muted-foreground">Alt: {order.address.alternatePhone}</p>
+                      )}
+                      {order.returnRequest?.status && order.returnRequest.status !== 'None' && (
+                        <div className="mt-2 rounded-lg border border-primary/20 bg-primary/5 p-2">
+                          <p className="font-semibold text-primary">{order.returnRequest.type}: {order.returnRequest.reason}</p>
+                          <select
+                            value={order.returnRequest.status}
+                            onChange={e => updateReturnStatus(order._id, e.target.value)}
+                            disabled={updatingId === order._id}
+                            className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-xs"
+                          >
+                            {RETURN_STATUSES.map(status => <option key={status} value={status}>{status}</option>)}
+                          </select>
+                        </div>
+                      )}
+                      {order.supportRequests?.length > 0 && (
+                        <div className="mt-2 space-y-2">
+                          {order.supportRequests.map(request => (
+                            <div key={request._id} className="rounded-lg border border-border bg-muted/30 p-2">
+                              <p className="font-semibold text-foreground">{request.topic}</p>
+                              <p className="line-clamp-2">{request.message}</p>
+                              <select
+                                value={request.status}
+                                onChange={e => updateHelpStatus(order._id, request._id, e.target.value)}
+                                disabled={updatingId === order._id}
+                                className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-xs"
+                              >
+                                {HELP_STATUSES.map(status => <option key={status} value={status}>{status}</option>)}
+                              </select>
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </td>

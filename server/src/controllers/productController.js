@@ -1,6 +1,10 @@
 import Product from '../models/Product.js';
 import Review from '../models/Review.js';
 
+const PRODUCT_CARD_FIELDS = 'name price images category stock rating numReviews';
+const PRODUCT_CARD_CACHE = 'public, max-age=60, s-maxage=300, stale-while-revalidate=600';
+const PRODUCT_DETAIL_CACHE = 'public, max-age=30, s-maxage=120, stale-while-revalidate=300';
+
 // @desc    Fetch all products
 // @route   GET /api/products
 // @access  Public
@@ -24,7 +28,23 @@ export const getProducts = async (req, res) => {
     // Size filter
     const size = req.query.size ? { sizes: req.query.size } : {};
 
-    const products = await Product.find({ ...keyword, ...category, ...color, ...priceFilter, ...size });
+    const fields = req.query.fields;
+    const limit = req.query.limit ? Number(req.query.limit) : null;
+
+    const query = Product.find({ ...keyword, ...category, ...color, ...priceFilter, ...size });
+
+    if (fields === 'card' || fields === 'admin-card') {
+        query.select(PRODUCT_CARD_FIELDS);
+    }
+
+    if (Number.isFinite(limit) && limit > 0) {
+        query.limit(Math.min(limit, 200));
+    }
+
+    query.sort({ createdAt: -1 });
+
+    const products = await query.lean();
+    res.set('Cache-Control', PRODUCT_CARD_CACHE);
     res.json(products);
 };
 
@@ -32,8 +52,9 @@ export const getProducts = async (req, res) => {
 // @route   GET /api/products/:id
 // @access  Public
 export const getProductById = async (req, res) => {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findById(req.params.id).lean();
     if (product) {
+        res.set('Cache-Control', PRODUCT_DETAIL_CACHE);
         res.json(product);
     } else {
         res.status(404).json({ message: 'Product not found' });
@@ -49,7 +70,11 @@ export const getRelatedProducts = async (req, res) => {
     const related = await Product.find({
         category: product.category,
         _id: { $ne: product._id },
-    }).limit(4);
+    })
+        .select(PRODUCT_CARD_FIELDS)
+        .limit(4)
+        .lean();
+    res.set('Cache-Control', PRODUCT_CARD_CACHE);
     res.json(related);
 };
 
@@ -127,7 +152,7 @@ export const deleteProduct = async (req, res) => {
 // @route   POST /api/products/:id/reviews
 // @access  Private
 export const createProductReview = async (req, res) => {
-    const { rating, comment } = req.body;
+    const { rating, comment, images = [] } = req.body;
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
@@ -143,6 +168,7 @@ export const createProductReview = async (req, res) => {
         name: req.user.name,
         rating: Number(rating),
         comment,
+        images: Array.isArray(images) ? images.slice(0, 5) : [],
     });
     await review.save();
 
@@ -169,7 +195,11 @@ export const getProductSuggestions = async (req, res) => {
     const keyword = req.query.keyword
         ? { name: { $regex: req.query.keyword, $options: 'i' } }
         : {};
-    const products = await Product.find({ ...keyword }).select('name images price').limit(5);
+    const products = await Product.find({ ...keyword })
+        .select('name images price')
+        .limit(5)
+        .lean();
+    res.set('Cache-Control', PRODUCT_CARD_CACHE);
     res.json(products);
 };
 
@@ -185,6 +215,7 @@ export const getCategories = async (req, res) => {
     try {
         const now = Date.now();
         if (categoriesCache && (now - lastCacheUpdate) < CACHE_DURATION) {
+            res.set('Cache-Control', 'public, max-age=300, s-maxage=900, stale-while-revalidate=1800');
             return res.json(categoriesCache);
         }
 
@@ -204,7 +235,7 @@ export const getCategories = async (req, res) => {
         const categoryData = await Promise.all(allCategoryNames.map(async (catName) => {
             const product = await Product.findOne({ 
                 category: { $regex: new RegExp(`^${catName}$`, 'i') } 
-            }).select('images');
+            }).select('images').lean();
             
             // Default placeholder images for categories without products
             const placeholders = {
@@ -224,6 +255,7 @@ export const getCategories = async (req, res) => {
         
         categoriesCache = categoryData;
         lastCacheUpdate = now;
+        res.set('Cache-Control', 'public, max-age=300, s-maxage=900, stale-while-revalidate=1800');
         res.json(categoryData);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching categories' });

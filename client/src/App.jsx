@@ -15,6 +15,7 @@ const Checkout = lazy(() => import('./pages/Checkout'));
 const MyOrders = lazy(() => import('./pages/MyOrders'));
 const Profile = lazy(() => import('./pages/Profile'));
 const OrderSuccess = lazy(() => import('./pages/OrderSuccess'));
+const InfoPage = lazy(() => import('./pages/InfoPage'));
 const ProductCreate = lazy(() => import('./pages/admin/ProductCreate'));
 const AdminLayout = lazy(() => import('./components/layout/AdminLayout'));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
@@ -48,6 +49,13 @@ function App() {
             <Route path="my-orders" element={<MyOrders />} />
             <Route path="profile" element={<Profile />} />
             <Route path="order-success" element={<OrderSuccess />} />
+            <Route path="about" element={<InfoPage page="about" />} />
+            <Route path="contact" element={<InfoPage page="contact" />} />
+            <Route path="faq" element={<InfoPage page="faq" />} />
+            <Route path="shipping" element={<InfoPage page="shipping" />} />
+            <Route path="terms" element={<InfoPage page="terms" />} />
+            <Route path="privacy" element={<InfoPage page="privacy" />} />
+            <Route path="returns" element={<InfoPage page="returns" />} />
             <Route path="admin" element={<AdminLayout />}>
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="products" element={<AdminProducts />} />
