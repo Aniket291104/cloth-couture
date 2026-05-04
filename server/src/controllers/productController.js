@@ -221,36 +221,52 @@ export const getCategories = async (req, res) => {
 
         // Define standard categories that should always be visible
         const standardCategories = ['Dresses', 'Shirts', 'Bottoms', 'Outerwear', 'Accessories', 'New Arrivals'];
-        
-        // Get actual categories from products
-        const dbCategories = await Product.distinct('category');
-        
-        // Combine and ensure uniqueness (case-insensitive for comparison)
-        const allCategoryNames = Array.from(new Set([
-            ...standardCategories,
-            ...dbCategories.map(c => c.charAt(0).toUpperCase() + c.slice(1).toLowerCase())
-        ]));
 
-        // Get one representative product for each category that has them
-        const categoryData = await Promise.all(allCategoryNames.map(async (catName) => {
-            const product = await Product.findOne({ 
-                category: { $regex: new RegExp(`^${catName}$`, 'i') } 
-            }).select('images').lean();
-            
-            // Default placeholder images for categories without products
-            const placeholders = {
-                'Dresses': '/images/dress.png',
-                'Shirts': '/images/shirt.png',
-                'Bottoms': '/images/pants.png',
-                'Outerwear': '/images/outerwear.png',
-                'Accessories': '/images/accessories.png',
-                'New Arrivals': '/images/hero_banner.png'
-            };
+        const formatCategoryName = (value) => {
+            if (typeof value !== 'string') return '';
+            const trimmed = value.trim();
+            if (!trimmed) return '';
+            // Keep existing behavior: sentence-case the category.
+            return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+        };
 
-            return {
-                name: catName,
-                image: (product && product.images?.length > 0) ? product.images[0] : (placeholders[catName] || '/images/placeholder.png')
-            };
+        // Default placeholder images for categories without products
+        const placeholders = {
+            'Dresses': '/images/dress.png',
+            'Shirts': '/images/shirt.png',
+            'Bottoms': '/images/pants.png',
+            'Outerwear': '/images/outerwear.png',
+            'Accessories': '/images/accessories.png',
+            'New Arrivals': '/images/hero_banner.png'
+        };
+
+        // Fetch categories + one representative image in a single DB roundtrip.
+        const dbCategoryRows = await Product.aggregate([
+            { $match: { category: { $type: 'string', $ne: '' } } },
+            {
+                $group: {
+                    _id: { $toLower: '$category' },
+                    name: { $first: '$category' },
+                    image: { $first: { $arrayElemAt: ['$images', 0] } },
+                },
+            },
+        ]);
+
+        const imageByCategory = new Map();
+        const dbCategoryNames = [];
+
+        for (const row of dbCategoryRows || []) {
+            const formatted = formatCategoryName(row?.name);
+            if (!formatted) continue;
+            dbCategoryNames.push(formatted);
+            if (row?.image) imageByCategory.set(formatted, row.image);
+        }
+
+        const allCategoryNames = Array.from(new Set([...standardCategories, ...dbCategoryNames]));
+
+        const categoryData = allCategoryNames.map((catName) => ({
+            name: catName,
+            image: imageByCategory.get(catName) || placeholders[catName] || '/images/placeholder.png',
         }));
         
         categoriesCache = categoryData;
@@ -258,6 +274,7 @@ export const getCategories = async (req, res) => {
         res.set('Cache-Control', 'public, max-age=300, s-maxage=900, stale-while-revalidate=1800');
         res.json(categoryData);
     } catch (error) {
+        console.error('Error fetching categories:', error);
         res.status(500).json({ message: 'Error fetching categories' });
     }
 };

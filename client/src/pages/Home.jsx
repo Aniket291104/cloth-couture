@@ -3,13 +3,16 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import AdaptiveImage from '@/components/ui/AdaptiveImage';
-import { API_BASE_URL, getImageUrl, readCachedJSON, writeCachedJSON } from '@/lib/utils';
+import { API_BASE_URL, getImageUrl, readCachedJSON, readCachedJSONStale, writeCachedJSON } from '@/lib/utils';
 import axios from 'axios';
 
 const RecentlyViewed = lazy(() => import('../components/RecentlyViewed'));
 
 const CATEGORY_CACHE_KEY = 'cc:home:categories:v1';
 const CATEGORY_CACHE_TTL_MS = 15 * 60 * 1000;
+const CATEGORY_FETCH_TIMEOUT_MS = 8000;
+const CATEGORY_MAX_RETRIES = 3;
+const CATEGORY_RETRY_DELAYS_MS = [0, 800, 1600, 3200];
 
 const CategorySkeleton = () => (
   <div className="w-[160px] md:w-[220px] flex-shrink-0 rounded-xl aspect-[3/4] bg-muted animate-pulse" />
@@ -22,12 +25,21 @@ const Home = () => {
   const [newsletterMsg, setNewsletterMsg] = useState('');
   const [categories, setCategories] = useState([]);
   const [loadingCats, setLoadingCats] = useState(true);
+  const [catsError, setCatsError] = useState('');
+  const [catsReloadNonce, setCatsReloadNonce] = useState(0);
   const scrollRef = useRef(null);
 
   useEffect(() => {
     let isMounted = true;
+    const controller = new AbortController();
+    let retryTimeoutId = null;
 
-    const fetchCategories = async () => {
+    const fetchCategories = async ({ showLoading, attempt = 0, allowStale = true } = {}) => {
+      if (showLoading) {
+        setCatsError('');
+        setLoadingCats(true);
+      }
+
       const cachedCategories = readCachedJSON(CATEGORY_CACHE_KEY, CATEGORY_CACHE_TTL_MS, window.sessionStorage);
       if (cachedCategories?.length) {
         if (isMounted) {
@@ -37,25 +49,50 @@ const Home = () => {
         return;
       }
 
+      const staleCategories = allowStale ? readCachedJSONStale(CATEGORY_CACHE_KEY, window.sessionStorage) : null;
+      if (staleCategories?.length && isMounted) {
+        setCategories(staleCategories);
+        setLoadingCats(false);
+        // Refresh in the background without blocking UI.
+        fetchCategories({ showLoading: false, attempt: 0, allowStale: false });
+        return;
+      }
+
       try {
-        const { data } = await axios.get(`${API_BASE_URL}/api/products/categories`);
+        const { data } = await axios.get(`${API_BASE_URL}/api/products/categories`, {
+          signal: controller.signal,
+          timeout: CATEGORY_FETCH_TIMEOUT_MS,
+        });
         if (isMounted) {
-          setCategories(data);
-          writeCachedJSON(CATEGORY_CACHE_KEY, data, window.sessionStorage);
+          const nextCategories = Array.isArray(data) ? data : [];
+          setCategories(nextCategories);
+          writeCachedJSON(CATEGORY_CACHE_KEY, nextCategories, window.sessionStorage);
+          setCatsError(nextCategories.length ? '' : 'No collections available right now.');
         }
       } catch (error) {
+        const isCanceled = error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED';
+        if (isCanceled) return;
         console.error('Error fetching categories:', error);
+        if (attempt < CATEGORY_MAX_RETRIES && isMounted) {
+          retryTimeoutId = window.setTimeout(() => {
+            fetchCategories({ showLoading: false, attempt: attempt + 1, allowStale });
+          }, CATEGORY_RETRY_DELAYS_MS[Math.min(attempt + 1, CATEGORY_RETRY_DELAYS_MS.length - 1)]);
+        } else if (isMounted) {
+          setCatsError('Could not load collections. Please try again.');
+        }
       } finally {
-        if (isMounted) setLoadingCats(false);
+        if (showLoading && isMounted) setLoadingCats(false);
       }
     };
 
-    fetchCategories();
+    fetchCategories({ showLoading: true, attempt: 0, allowStale: true });
 
     return () => {
       isMounted = false;
+      controller.abort();
+      if (retryTimeoutId) window.clearTimeout(retryTimeoutId);
     };
-  }, []);
+  }, [catsReloadNonce]);
 
   const scroll = (direction) => {
     if (!scrollRef.current) return;
@@ -164,9 +201,29 @@ const Home = () => {
               ))}
             </div>
           ) : categories.length === 0 ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
+            catsError ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <p className="text-sm text-muted-foreground mb-4">{catsError}</p>
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setCatsError('');
+                      setCatsReloadNonce((n) => n + 1);
+                    }}
+                  >
+                    Retry
+                  </Button>
+                  <Button asChild>
+                    <Link to="/products">Browse Products</Link>
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            )
           ) : (
             <div
               ref={scrollRef}

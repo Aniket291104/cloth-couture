@@ -39,6 +39,20 @@ export function writeCachedJSON(key, value, storage = isBrowser ? window.localSt
   }
 }
 
+// Returns cached value even if expired/old (best-effort fallback).
+export function readCachedJSONStale(key, storage = isBrowser ? window.localStorage : null) {
+  if (!storage) return null;
+  try {
+    const raw = storage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed.value;
+  } catch {
+    return null;
+  }
+}
+
 export function getImageUrl(imagePath) {
   if (!imagePath) return '/images/placeholder.png';
   if (imagePath.startsWith('http')) return imagePath;
